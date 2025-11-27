@@ -2,7 +2,7 @@ use ab_glyph::{Font, FontVec, PxScale};
 use image::{Rgba, RgbaImage, imageops};
 use imageproc::drawing::draw_text_mut;
 
-use crate::data_manager::{DataManager, Object, TextAreaConfig};
+use crate::data_manager::{DataManager, HorizontalAlign, Object, TextAreaConfig, VerticalAlign};
 use crate::loader::{load_font, load_random_image};
 
 // 图片压缩设置
@@ -169,8 +169,6 @@ fn draw_textarea(image: &mut RgbaImage, text: &str, font: &FontVec, config: &Tex
         config.font_color[2],
         255u8,
     ]);
-    let align = config.align.as_str();
-    let valign = config.valign.as_str();
 
     // 查找最佳字体大小
     let (font_size, lines, spaced_line_height, block_height) = find_best_font_size(
@@ -185,11 +183,10 @@ fn draw_textarea(image: &mut RgbaImage, text: &str, font: &FontVec, config: &Tex
     let scale = PxScale::from(font_size as f32);
 
     // 垂直对齐
-    let y_start = match valign {
-        "top" => y1,
-        "middle" => y1 + (config.size[1] as i32 - block_height) / 2,
-        "bottom" => y2 - block_height,
-        _ => y1,
+    let y_start = match &config.valign {
+        VerticalAlign::Top => y1,
+        VerticalAlign::Middle => y1 + (config.size[1] as i32 - block_height) / 2,
+        VerticalAlign::Bottom => y2 - block_height,
     };
 
     // 绘制每一行
@@ -198,11 +195,10 @@ fn draw_textarea(image: &mut RgbaImage, text: &str, font: &FontVec, config: &Tex
         let line_width = measure_text_width(line, font, scale);
 
         // 水平对齐
-        let x = match align {
-            "left" => x1,
-            "center" => x1 + (config.size[0] as i32 - line_width) / 2,
-            "right" => x2 - line_width,
-            _ => x1,
+        let x = match &config.align {
+            HorizontalAlign::Left => x1,
+            HorizontalAlign::Center => x1 + (config.size[0] as i32 - line_width) / 2,
+            HorizontalAlign::Right => x2 - line_width,
         };
 
         draw_text_with_shadow(image, line, x, y, font, scale, color, config.shadow_offset);

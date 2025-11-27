@@ -52,13 +52,15 @@ ImageBox 是一个将文字转换为自定义图片的工具
 - 图片物件：
   - `type`: `"image"`；
   - `position`: 位置坐标，格式为 `[x, y]`；
-  - `path`: 图片文件路径列表，解析方式同背景文件，路径相对于 `data/images/{id}` 目录；
+  - `path`: 图片文件路径列表，解析方式同背景文件，路径相对于 `data/images` 目录，可使用 `%c` 表示当前角色 ID；
 - 文字物件：
   - `type`: `"text"`；
   - `position`: 位置坐标，格式为 `[x, y]`；
   - `text`: 文字内容；
   - `font_color`: 文字颜色，格式为 `[R, G, B]`；
-  - `font_size`: 文字大小。
+  - `font_size`: 文字大小；
+
+放置物件会按照在列表中出现的顺序依次绘制，`template` 中的配置会在各角色配置前绘制。
 
 文字区域用于显示输入的文字，包含以下属性：
 
@@ -66,10 +68,10 @@ ImageBox 是一个将文字转换为自定义图片的工具
 - `size`: 区域大小，格式为 `[width, height]`；
 - `font_color`: 文字颜色，格式为 `[R, G, B]`；
 - `max_font_size`: 最大字体大小；
-- `shadow_offset`: 阴影偏移量，格式为 `[x_offset, y_offset]`；
-- `line_spacing`: 行间距；
-- `align`: 水平对齐方式，可选值为 `"left"`、`"center"`、`"right"`；
-- `valign`: 垂直对齐方式，可选值为 `"top"`、`"middle"`、`"bottom"`；
+- `shadow_offset`: (可选项)阴影偏移量，格式为 `[x_offset, y_offset]`，默认值为 `[0, 0]`；
+- `line_spacing`: (可选项)行间距，默认值为 `0`；
+- `align`: (可选项)水平对齐方式，可选值为 `"left"`、`"center"`、`"right"`，默认值为 `"left"`；
+- `valign`: (可选项)垂直对齐方式，可选值为 `"top"`、`"middle"`、`"bottom"`，默认值为 `"top"`。
 
 ## TODO
 

@@ -79,10 +79,11 @@ impl DataManager {
         image_patterns.sort_unstable();
         image_patterns.dedup();
 
-        let character_img_dir = get_data_dir().join("images").join(character_name);
+        let images_dir = get_data_dir().join("images");
         let mut character_imgs = HashMap::new();
         for pattern in &image_patterns {
-            let paths = collect_image_paths(character_img_dir.clone(), pattern);
+            let resolved_pattern = pattern.replace("%c", character_name);
+            let paths = collect_image_paths(images_dir.clone(), &resolved_pattern);
             character_imgs.insert(pattern.clone(), paths);
         }
         self.character_imgs = character_imgs;
@@ -106,16 +107,48 @@ pub enum Object {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum HorizontalAlign {
+    Left,
+    Center,
+    Right,
+}
+
+impl Default for HorizontalAlign {
+    fn default() -> Self {
+        HorizontalAlign::Left
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "lowercase")]
+pub enum VerticalAlign {
+    Top,
+    Middle,
+    Bottom,
+}
+
+impl Default for VerticalAlign {
+    fn default() -> Self {
+        VerticalAlign::Top
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TextAreaConfig {
     pub position: [i32; 2],
     pub size: [u32; 2],
     pub font_color: [u8; 3],
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_font_size: Option<u32>,
+    #[serde(default)]
     pub shadow_offset: (i32, i32),
+    #[serde(default)]
     pub line_spacing: f32,
-    pub align: String,
-    pub valign: String,
+    #[serde(default)]
+    pub align: HorizontalAlign,
+    #[serde(default)]
+    pub valign: VerticalAlign,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -192,20 +225,20 @@ fn load_data_json() -> HashMap<String, CharacterData> {
                 let mut result = HashMap::new();
 
                 for (key, raw_character) in config.characters {
-                    let objects = raw_character
-                        .objects
-                        .or_else(|| template.objects.clone())
-                        .unwrap_or_else(Vec::new);
+                    let mut backgrounds = Vec::new();
+                    if let Some(template_bg) = &template.backgrounds {
+                        backgrounds.extend(template_bg.clone());
+                    }
+                    if let Some(char_bg) = raw_character.backgrounds {
+                        backgrounds.extend(char_bg);
+                    }
 
-                    let backgrounds = match raw_character
-                        .backgrounds
-                        .or_else(|| template.backgrounds.clone())
-                    {
-                        Some(bg) => bg,
-                        None => {
-                            show_error_and_exit(&format!("角色 '{}' 缺少 backgrounds 配置！", key));
-                        }
-                    };
+                    if backgrounds.is_empty() {
+                        show_error_and_exit(&format!("角色 '{}' 缺少 backgrounds 配置！", key));
+                    }
+
+                    backgrounds.sort_unstable();
+                    backgrounds.dedup();
 
                     let font = match raw_character.font.or_else(|| template.font.clone()) {
                         Some(path) => path,
@@ -213,6 +246,11 @@ fn load_data_json() -> HashMap<String, CharacterData> {
                             show_error_and_exit(&format!("角色 '{}' 缺少 font 配置！", key));
                         }
                     };
+
+                    let mut objects = template.objects.clone().unwrap_or_else(Vec::new);
+                    if let Some(mut char_objects) = raw_character.objects {
+                        objects.append(&mut char_objects);
+                    }
 
                     let textarea = match raw_character
                         .textarea

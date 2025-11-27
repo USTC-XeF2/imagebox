@@ -2,22 +2,26 @@
   "template": {
     "backgrounds": ["*.png"],
     "font": "font.ttf",
+    "objects": [
+      {
+        "type": "image",
+        "position": [0, 134],
+        "path": ["%c/*.png"]
+      }
+    ],
     "textarea": {
       "position": [728, 355],
       "size": [1611, 445],
       "font_color": [255, 255, 255],
       "max_font_size": 145,
       "shadow_offset": [4, 4],
-      "line_spacing": 0.15,
-      "align": "left",
-      "valign": "top"
+      "line_spacing": 0.15
     }
   },
   "characters": {
     "nanoka": {
       "name": "黑部奈叶香",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 63],
@@ -51,7 +55,6 @@
     "hiro": {
       "name": "二阶堂希罗",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 63],
@@ -85,7 +88,6 @@
     "ema": {
       "name": "樱羽艾玛",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 73],
@@ -119,7 +121,6 @@
     "sherri": {
       "name": "橘雪莉",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 73],
@@ -146,7 +147,6 @@
     "anan": {
       "name": "夏目安安",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 73],
@@ -180,7 +180,6 @@
     "noa": {
       "name": "城崎诺亚",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 73],
@@ -214,7 +213,6 @@
     "coco": {
       "name": "泽渡可可",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 73],
@@ -248,7 +246,6 @@
     "alisa": {
       "name": "紫藤亚里沙",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 73],
@@ -282,7 +279,6 @@
     "reia": {
       "name": "莲见蕾雅",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 73],
@@ -316,7 +312,6 @@
     "mago": {
       "name": "宝生玛格",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 73],
@@ -350,7 +345,6 @@
     "hanna": {
       "name": "远野汉娜",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 73],
@@ -384,7 +378,6 @@
     "meruru": {
       "name": "冰上梅露露",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 73],
@@ -418,7 +411,6 @@
     "miria": {
       "name": "佐伯米莉亚",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 73],
@@ -452,7 +444,6 @@
     "yuki": {
       "name": "月代雪",
       "objects": [
-        { "type": "image", "position": [0, 134], "path": ["*.png"] },
         {
           "type": "text",
           "position": [759, 63],
