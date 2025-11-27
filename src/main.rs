@@ -5,7 +5,6 @@ mod config;
 mod data_manager;
 mod image_processor;
 mod keyboard;
-mod loader;
 mod tray;
 
 use std::sync::mpsc::channel;
