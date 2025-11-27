@@ -1,0 +1,480 @@
+{
+  "template": {
+    "backgrounds": ["*.png"],
+    "font": "font.ttf",
+    "textarea": {
+      "position": [728, 355],
+      "size": [1611, 445],
+      "font_color": [255, 255, 255],
+      "max_font_size": 145,
+      "shadow_offset": [4, 4],
+      "line_spacing": 0.15,
+      "align": "left",
+      "valign": "top"
+    }
+  },
+  "characters": {
+    "nanoka": {
+      "name": "黑部奈叶香",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 63],
+          "text": "黑",
+          "font_color": [131, 143, 147],
+          "font_size": 196
+        },
+        {
+          "type": "text",
+          "position": [955, 175],
+          "text": "部",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1053, 117],
+          "text": "奈",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1197, 175],
+          "text": "叶香",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "hiro": {
+      "name": "二阶堂希罗",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 63],
+          "text": "二",
+          "font_color": [239, 79, 84],
+          "font_size": 196
+        },
+        {
+          "type": "text",
+          "position": [955, 175],
+          "text": "阶堂",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1143, 110],
+          "text": "希",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1283, 175],
+          "text": "罗",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "ema": {
+      "name": "樱羽艾玛",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 73],
+          "text": "樱",
+          "font_color": [253, 145, 175],
+          "font_size": 186
+        },
+        {
+          "type": "text",
+          "position": [949, 175],
+          "text": "羽",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1039, 117],
+          "text": "艾",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1183, 175],
+          "text": "玛",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "sherri": {
+      "name": "橘雪莉",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 73],
+          "text": "橘",
+          "font_color": [137, 177, 251],
+          "font_size": 186
+        },
+        {
+          "type": "text",
+          "position": [943, 110],
+          "text": "雪",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1093, 175],
+          "text": "莉",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "anan": {
+      "name": "夏目安安",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 73],
+          "text": "夏",
+          "font_color": [159, 145, 251],
+          "font_size": 186
+        },
+        {
+          "type": "text",
+          "position": [949, 175],
+          "text": "目",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1039, 117],
+          "text": "安",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1183, 175],
+          "text": "安",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "noa": {
+      "name": "城崎诺亚",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 73],
+          "text": "城",
+          "font_color": [104, 223, 231],
+          "font_size": 186
+        },
+        {
+          "type": "text",
+          "position": [945, 175],
+          "text": "崎",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1042, 117],
+          "text": "诺",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1186, 175],
+          "text": "亚",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "coco": {
+      "name": "泽渡可可",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 73],
+          "text": "泽",
+          "font_color": [251, 114, 78],
+          "font_size": 186
+        },
+        {
+          "type": "text",
+          "position": [945, 175],
+          "text": "渡",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1042, 117],
+          "text": "可",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1186, 175],
+          "text": "可",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "alisa": {
+      "name": "紫藤亚里沙",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 73],
+          "text": "紫",
+          "font_color": [235, 75, 60],
+          "font_size": 186
+        },
+        {
+          "type": "text",
+          "position": [945, 175],
+          "text": "藤",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1042, 117],
+          "text": "亚",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1186, 175],
+          "text": "里沙",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "reia": {
+      "name": "莲见蕾雅",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 73],
+          "text": "莲",
+          "font_color": [253, 177, 88],
+          "font_size": 186
+        },
+        {
+          "type": "text",
+          "position": [945, 175],
+          "text": "见",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1042, 117],
+          "text": "蕾",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1186, 175],
+          "text": "雅",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "mago": {
+      "name": "宝生玛格",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 73],
+          "text": "宝",
+          "font_color": [185, 124, 235],
+          "font_size": 186
+        },
+        {
+          "type": "text",
+          "position": [945, 175],
+          "text": "生",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1042, 117],
+          "text": "玛",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1186, 175],
+          "text": "格",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "hanna": {
+      "name": "远野汉娜",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 73],
+          "text": "远",
+          "font_color": [169, 199, 30],
+          "font_size": 186
+        },
+        {
+          "type": "text",
+          "position": [945, 175],
+          "text": "野",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1042, 117],
+          "text": "汉",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1186, 175],
+          "text": "娜",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "meruru": {
+      "name": "冰上梅露露",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 73],
+          "text": "冰",
+          "font_color": [227, 185, 175],
+          "font_size": 186
+        },
+        {
+          "type": "text",
+          "position": [945, 175],
+          "text": "上",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1042, 117],
+          "text": "梅",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1186, 175],
+          "text": "露露",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "miria": {
+      "name": "佐伯米莉亚",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 73],
+          "text": "佐",
+          "font_color": [235, 207, 139],
+          "font_size": 186
+        },
+        {
+          "type": "text",
+          "position": [945, 175],
+          "text": "伯",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1042, 117],
+          "text": "米",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        },
+        {
+          "type": "text",
+          "position": [1186, 175],
+          "text": "莉亚",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        }
+      ]
+    },
+    "yuki": {
+      "name": "月代雪",
+      "objects": [
+        { "type": "image", "position": [0, 134], "path": ["*.png"] },
+        {
+          "type": "text",
+          "position": [759, 63],
+          "text": "月",
+          "font_color": [195, 209, 231],
+          "font_size": 196
+        },
+        {
+          "type": "text",
+          "position": [948, 175],
+          "text": "代",
+          "font_color": [255, 255, 255],
+          "font_size": 92
+        },
+        {
+          "type": "text",
+          "position": [1053, 117],
+          "text": "雪",
+          "font_color": [255, 255, 255],
+          "font_size": 147
+        }
+      ]
+    }
+  }
+}
