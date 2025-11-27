@@ -92,14 +92,13 @@ impl Config {
         let config_path = Self::get_config_path();
         let is_first_launch = !config_path.exists();
 
-        if config_path.exists() {
-            if let Ok(content) = fs::read_to_string(&config_path) {
-                if let Ok(config) = serde_yaml::from_str(&content) {
-                    let loaded_config: Config = config;
-                    loaded_config.save().ok();
-                    return loaded_config;
-                }
-            }
+        if config_path.exists()
+            && let Ok(content) = fs::read_to_string(&config_path)
+            && let Ok(config) = serde_yaml::from_str(&content)
+        {
+            let loaded_config: Config = config;
+            loaded_config.save().ok();
+            return loaded_config;
         }
 
         let default_config = Config::default();

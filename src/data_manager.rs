@@ -106,32 +106,22 @@ pub enum Object {
     },
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum HorizontalAlign {
+    #[default]
     Left,
     Center,
     Right,
 }
 
-impl Default for HorizontalAlign {
-    fn default() -> Self {
-        HorizontalAlign::Left
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum VerticalAlign {
+    #[default]
     Top,
     Middle,
     Bottom,
-}
-
-impl Default for VerticalAlign {
-    fn default() -> Self {
-        VerticalAlign::Top
-    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]

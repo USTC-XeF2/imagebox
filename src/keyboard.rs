@@ -256,7 +256,7 @@ fn process_image(
         bytes: image.into_raw().into(),
     };
 
-    if let Err(_) = clipboard.set_image(image_data) {
+    if clipboard.set_image(image_data).is_err() {
         return;
     }
 

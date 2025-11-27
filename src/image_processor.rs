@@ -1,4 +1,5 @@
 use std::io::Cursor;
+use std::path::PathBuf;
 
 use ab_glyph::{Font, FontVec, PxScale};
 use image::{Rgba, RgbaImage, imageops};
@@ -129,6 +130,7 @@ fn find_best_font_size(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn draw_text_with_shadow(
     image: &mut RgbaImage,
     text: &str,
@@ -248,7 +250,8 @@ pub fn generate_image(
 
     let mut rng = rand::rng();
 
-    let mut image = load_random_image(&mut rng, &data_manager.backgrounds.iter().collect())?;
+    let backgrounds_vec: Vec<&PathBuf> = data_manager.backgrounds.iter().collect();
+    let mut image = load_random_image(&mut rng, &backgrounds_vec)?;
 
     let font = load_font(&character_data.font)?;
 
@@ -282,7 +285,7 @@ pub fn generate_image(
 
                     draw_text_with_shadow(
                         &mut image,
-                        &text,
+                        text,
                         position[0],
                         position[1],
                         &font,

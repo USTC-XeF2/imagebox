@@ -18,7 +18,7 @@ pub fn load_image(path: &PathBuf) -> Option<RgbaImage> {
     }
 }
 
-pub fn load_random_image<T: Rng>(rng: &mut T, paths: &Vec<&PathBuf>) -> Option<RgbaImage> {
+pub fn load_random_image<T: Rng>(rng: &mut T, paths: &[&PathBuf]) -> Option<RgbaImage> {
     if paths.is_empty() {
         return None;
     }

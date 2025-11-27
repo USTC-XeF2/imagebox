@@ -87,10 +87,10 @@ impl TrayMenu {
                 Some(ControlMessage::Help)
             } else if event.id == self.quit_item.id() {
                 Some(ControlMessage::Quit)
-            } else if let Some(name) = self.character_id_map.get(&event.id) {
-                Some(ControlMessage::SwitchCharacter(name.clone()))
             } else {
-                None
+                self.character_id_map
+                    .get(&event.id)
+                    .map(|name| ControlMessage::SwitchCharacter(name.clone()))
             }
         } else {
             None
