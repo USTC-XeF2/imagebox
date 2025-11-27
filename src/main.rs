@@ -8,9 +8,10 @@ mod keyboard;
 mod loader;
 mod tray;
 
-use single_instance::SingleInstance;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, RwLock};
+
+use single_instance::SingleInstance;
 use winit::event_loop::EventLoop;
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 

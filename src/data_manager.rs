@@ -1,10 +1,10 @@
-use glob;
-use rfd::MessageDialog;
-use rfd::MessageLevel;
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
+
+use rfd::MessageDialog;
+use rfd::MessageLevel;
+use serde::{Deserialize, Serialize};
 
 use crate::config::get_current_dir;
 

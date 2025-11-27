@@ -1,11 +1,12 @@
-use notify_debouncer_full::notify::{RecommendedWatcher, RecursiveMode};
-use notify_debouncer_full::{DebounceEventResult, Debouncer, FileIdMap, new_debouncer};
-use rfd::MessageDialog;
-use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::time::Duration;
+
+use notify_debouncer_full::notify::{RecommendedWatcher, RecursiveMode};
+use notify_debouncer_full::{DebounceEventResult, Debouncer, FileIdMap, new_debouncer};
+use rfd::MessageDialog;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Config {
@@ -21,6 +22,8 @@ pub struct Config {
     pub enable_whitelist: bool,
     #[serde(default = "default_whitelist")]
     pub whitelist: Vec<String>,
+    #[serde(default = "default_max_image_size")]
+    pub max_image_size: usize,
 }
 
 fn default_true() -> bool {
@@ -40,6 +43,10 @@ fn default_whitelist() -> Vec<String> {
     ]
 }
 
+fn default_max_image_size() -> usize {
+    256
+}
+
 impl Default for Config {
     fn default() -> Self {
         Config {
@@ -49,6 +56,7 @@ impl Default for Config {
             intercept_enter: false,
             enable_whitelist: true,
             whitelist: default_whitelist(),
+            max_image_size: default_max_image_size(),
         }
     }
 }

@@ -26,7 +26,8 @@ ImageBox 是一个将文字转换为自定义图片的工具
 - `auto_send`: 是否启用自动发送功能，默认值为 `false`；
 - `intercept_enter`: 是否拦截 Enter 键，默认值为 `false`；
 - `enable_whitelist`: 是否启用白名单功能，默认值为 `true`；
-- `whitelist`: 白名单列表，包含允许触发快捷键的应用程序名称。
+- `whitelist`: 白名单列表，包含允许触发快捷键的应用程序名称；
+- `max_image_size`: 生成图片的最大预估大小（采用 PNG 压缩预估，不保证一定小于此数值），单位为 KB，设置为 `0` 时不进行压缩，默认值为 `256`。
 
 配置文件支持自动热重载。
 

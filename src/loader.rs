@@ -1,9 +1,10 @@
-use ab_glyph::FontVec;
-use image::{ImageReader, RgbaImage};
-use rand::Rng;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use ab_glyph::FontVec;
+use image::{ImageReader, RgbaImage};
+use rand::Rng;
 
 use crate::data_manager::get_data_dir;
 

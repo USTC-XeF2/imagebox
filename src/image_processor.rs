@@ -1,3 +1,5 @@
+use std::io::Cursor;
+
 use ab_glyph::{Font, FontVec, PxScale};
 use image::{Rgba, RgbaImage, imageops};
 use imageproc::drawing::draw_text_mut;
@@ -5,8 +7,8 @@ use imageproc::drawing::draw_text_mut;
 use crate::data_manager::{DataManager, HorizontalAlign, Object, TextAreaConfig, VerticalAlign};
 use crate::loader::{load_font, load_random_image};
 
-// 图片压缩设置
-const RESIZE_RATIO: f32 = 0.4;
+// 压缩保守系数
+const CONSERVATIVE_FACTOR: f32 = 0.9;
 
 fn measure_text_width(text: &str, font: &FontVec, scale: PxScale) -> i32 {
     let mut width: f32 = 0.0;
@@ -210,19 +212,37 @@ fn draw_textarea(image: &mut RgbaImage, text: &str, font: &FontVec, config: &Tex
     }
 }
 
-fn compress_image(img: RgbaImage) -> RgbaImage {
+fn compress_image(img: RgbaImage, target_size_bytes: usize) -> RgbaImage {
     let (width, height) = img.dimensions();
 
-    let new_width = (width as f32 * RESIZE_RATIO) as u32;
-    let new_height = (height as f32 * RESIZE_RATIO) as u32;
+    let mut buf = Vec::new();
+    if img
+        .write_to(&mut Cursor::new(&mut buf), image::ImageFormat::Png)
+        .is_err()
+    {
+        return img;
+    }
 
-    imageops::resize(&img, new_width, new_height, imageops::FilterType::Lanczos3)
+    let original_size = buf.len();
+
+    if original_size <= target_size_bytes {
+        return img;
+    }
+
+    let size_ratio = (target_size_bytes as f32) / (original_size as f32);
+    let scale_factor = size_ratio.sqrt() * CONSERVATIVE_FACTOR;
+
+    let width = ((width as f32 * scale_factor) as u32).max(1);
+    let height = ((height as f32 * scale_factor) as u32).max(1);
+
+    imageops::resize(&img, width, height, imageops::FilterType::Lanczos3)
 }
 
 pub fn generate_image(
     data_manager: &DataManager,
     character_name: &str,
-    clipboard_text: &str,
+    text: &str,
+    max_size: usize,
 ) -> Option<RgbaImage> {
     let character_data = data_manager.character_configs.get(character_name)?;
 
@@ -275,9 +295,11 @@ pub fn generate_image(
         }
     }
 
-    draw_textarea(&mut image, clipboard_text, &font, &character_data.textarea);
+    draw_textarea(&mut image, text, &font, &character_data.textarea);
 
-    let compressed = compress_image(image);
-
-    Some(compressed)
+    Some(if max_size > 0 {
+        compress_image(image, max_size * 1024)
+    } else {
+        image
+    })
 }

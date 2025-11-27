@@ -1,12 +1,13 @@
-use active_win_pos_rs::get_active_window;
-use arboard::{Clipboard, ImageData};
-use enigo::{Direction, Enigo, Key as EnigoKey, Keyboard, Settings};
-use rdev::{Event, EventType, Key, grab};
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 use std::time::Duration;
+
+use active_win_pos_rs::get_active_window;
+use arboard::{Clipboard, ImageData};
+use enigo::{Direction, Enigo, Key as EnigoKey, Keyboard, Settings};
+use rdev::{Event, EventType, Key, grab};
 
 use crate::config::Config;
 use crate::data_manager::DataManager;
@@ -225,14 +226,22 @@ fn process_image(
         return;
     }
 
-    let current_character = {
+    let (current_character, max_image_size) = {
         let config_guard = config.read().unwrap();
-        config_guard.current_character.clone()
+        (
+            config_guard.current_character.clone(),
+            config_guard.max_image_size,
+        )
     };
 
     let image = {
         let data_manager_guard = data_manager.read().unwrap();
-        match generate_image(&data_manager_guard, &current_character, &copied_content) {
+        match generate_image(
+            &data_manager_guard,
+            &current_character,
+            &copied_content,
+            max_image_size,
+        ) {
             Some(img) => img,
             None => {
                 return;
