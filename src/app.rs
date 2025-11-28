@@ -1,17 +1,24 @@
 use std::sync::mpsc::Receiver;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
+use std::thread;
 
+use global_hotkey::{GlobalHotKeyEvent, HotKeyState};
+use tray_icon::menu::MenuEvent;
 use winit::application::ApplicationHandler;
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
 
 use crate::config::Config;
 use crate::data_manager::DataManager;
+use crate::keyboard::{HotkeyManager, check_whitelist};
+use crate::processor::process_image;
 use crate::tray::{ControlMessage, TrayMenu};
 
 pub struct App {
-    pub message_receiver: Receiver<ControlMessage>,
+    pub is_processing: Arc<Mutex<bool>>,
+    pub enter_key_receiver: Receiver<()>,
     pub config_reload_receiver: Receiver<()>,
     pub tray_menu: TrayMenu,
+    pub hotkey_manager: HotkeyManager,
     pub config: Arc<RwLock<Config>>,
     pub data_manager: Arc<RwLock<DataManager>>,
 }
@@ -19,6 +26,8 @@ pub struct App {
 impl App {
     fn reload_config(&mut self) {
         let new_config = Config::load();
+
+        self.hotkey_manager.update(&new_config);
 
         let (config_changed, character_changed) = {
             let config = self.config.read().unwrap();
@@ -62,6 +71,39 @@ impl App {
 
                 self.tray_menu
                     .set_selected_character(&new_config.current_character);
+            }
+        }
+    }
+
+    fn handle_tray_event(&mut self, event: MenuEvent, event_loop: &ActiveEventLoop) {
+        if let Some(msg) = self.tray_menu.event_to_message(event) {
+            self.handle_message(msg, event_loop);
+        }
+    }
+
+    fn handle_hotkey_event(
+        &mut self,
+        event: global_hotkey::GlobalHotKeyEvent,
+        event_loop: &ActiveEventLoop,
+    ) {
+        if event.state == HotKeyState::Released {
+            return;
+        }
+
+        if event.id == self.hotkey_manager.toggle_hotkey.id() {
+            self.handle_message(ControlMessage::ToggleIntercept, event_loop);
+        } else if event.id == self.hotkey_manager.generate_hotkey.id() {
+            let (should_process, auto_paste, auto_send) = {
+                let config_guard = self.config.read().unwrap();
+                (
+                    check_whitelist(&config_guard),
+                    config_guard.auto_paste,
+                    config_guard.auto_send,
+                )
+            };
+
+            if should_process {
+                self.process_image_in_thread(auto_paste, auto_send);
             }
         }
     }
@@ -119,6 +161,28 @@ impl App {
             }
         }
     }
+
+    fn process_image_in_thread(&self, auto_paste: bool, auto_send: bool) {
+        let mut processing = self.is_processing.lock().unwrap();
+        if *processing {
+            return;
+        }
+        *processing = true;
+
+        let is_processing_clone = self.is_processing.clone();
+        let config_clone = self.config.clone();
+        let data_manager_clone = self.data_manager.clone();
+
+        drop(processing);
+
+        thread::spawn(move || {
+            process_image(config_clone, data_manager_clone, auto_paste, auto_send);
+
+            if let Ok(mut processing) = is_processing_clone.lock() {
+                *processing = false;
+            }
+        });
+    }
 }
 
 impl ApplicationHandler for App {
@@ -140,12 +204,18 @@ impl ApplicationHandler for App {
             self.reload_config();
         }
 
-        if let Some(msg) = self.tray_menu.try_recv() {
-            self.handle_message(msg, event_loop);
+        let tray_event_receiver = MenuEvent::receiver();
+        if let Ok(event) = tray_event_receiver.try_recv() {
+            self.handle_tray_event(event, event_loop);
         }
 
-        if let Ok(msg) = self.message_receiver.try_recv() {
-            self.handle_message(msg, event_loop);
+        let hotkey_receiver = GlobalHotKeyEvent::receiver();
+        if let Ok(event) = hotkey_receiver.try_recv() {
+            self.handle_hotkey_event(event, event_loop);
+        }
+
+        if self.enter_key_receiver.try_recv().is_ok() {
+            self.process_image_in_thread(true, true);
         }
 
         std::thread::sleep(std::time::Duration::from_millis(10));

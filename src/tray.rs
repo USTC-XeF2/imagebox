@@ -34,8 +34,6 @@ pub struct TrayMenu {
     tray_icon: TrayIcon,
     color_icon: Icon,
     gray_icon: Icon,
-
-    menu_channel: &'static tray_icon::menu::MenuEventReceiver,
 }
 
 impl TrayMenu {
@@ -67,33 +65,29 @@ impl TrayMenu {
         self.auto_send_item.set_checked(enabled);
     }
 
-    pub fn set_selected_character(&self, character_name: &str) {
-        for (name, menu_item) in &self.character_items {
-            menu_item.set_checked(name == character_name);
+    pub fn set_selected_character(&self, character_id: &str) {
+        for (id, menu_item) in &self.character_items {
+            menu_item.set_checked(id == character_id);
         }
     }
 
-    pub fn try_recv(&self) -> Option<ControlMessage> {
-        if let Ok(event) = self.menu_channel.try_recv() {
-            if event.id == self.auto_paste_item.id() {
-                Some(ControlMessage::ToggleAutoPaste)
-            } else if event.id == self.auto_send_item.id() {
-                Some(ControlMessage::ToggleAutoSend)
-            } else if event.id == self.intercept_item.id() {
-                Some(ControlMessage::ToggleIntercept)
-            } else if event.id == self.whitelist_item.id() {
-                Some(ControlMessage::ToggleWhitelist)
-            } else if event.id == self.help_item.id() {
-                Some(ControlMessage::Help)
-            } else if event.id == self.quit_item.id() {
-                Some(ControlMessage::Quit)
-            } else {
-                self.character_id_map
-                    .get(&event.id)
-                    .map(|name| ControlMessage::SwitchCharacter(name.clone()))
-            }
+    pub fn event_to_message(&self, event: MenuEvent) -> Option<ControlMessage> {
+        if event.id == self.auto_paste_item.id() {
+            Some(ControlMessage::ToggleAutoPaste)
+        } else if event.id == self.auto_send_item.id() {
+            Some(ControlMessage::ToggleAutoSend)
+        } else if event.id == self.intercept_item.id() {
+            Some(ControlMessage::ToggleIntercept)
+        } else if event.id == self.whitelist_item.id() {
+            Some(ControlMessage::ToggleWhitelist)
+        } else if event.id == self.help_item.id() {
+            Some(ControlMessage::Help)
+        } else if event.id == self.quit_item.id() {
+            Some(ControlMessage::Quit)
         } else {
-            None
+            self.character_id_map
+                .get(&event.id)
+                .map(|name| ControlMessage::SwitchCharacter(name.clone()))
         }
     }
 }
@@ -165,8 +159,6 @@ pub fn create_tray_menu(
         .with_icon(icon)
         .build()?;
 
-    let menu_channel = MenuEvent::receiver();
-
     let tray_menu = TrayMenu {
         character_items,
         character_id_map,
@@ -179,7 +171,6 @@ pub fn create_tray_menu(
         tray_icon,
         color_icon,
         gray_icon,
-        menu_channel,
     };
 
     Ok(tray_menu)

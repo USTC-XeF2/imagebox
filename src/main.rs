@@ -5,10 +5,11 @@ mod config;
 mod data_manager;
 mod image_processor;
 mod keyboard;
+mod processor;
 mod tray;
 
 use std::sync::mpsc::channel;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 use single_instance::SingleInstance;
 use winit::event_loop::EventLoop;
@@ -17,7 +18,7 @@ use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 use app::App;
 use config::{Config, start_config_watcher};
 use data_manager::DataManager;
-use keyboard::start_keyboard_listener;
+use keyboard::{HotkeyManager, start_keyboard_listener};
 use tray::create_tray_menu;
 
 const APP_NAME: &str = "ImageBox_001";
@@ -48,19 +49,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let tray_menu = create_tray_menu(&data_manager.character_configs, &config)?;
 
-    let data_manager = Arc::new(RwLock::new(data_manager));
-    let config = Arc::new(RwLock::new(config));
+    let hotkey_manager = HotkeyManager::new(&config)?;
 
-    let (message_sender, message_receiver) = channel();
-    start_keyboard_listener(config.clone(), data_manager.clone(), message_sender);
+    let config = Arc::new(RwLock::new(config));
+    let is_processing = Arc::new(Mutex::new(false));
+
+    let (enter_key_sender, enter_key_receiver) = channel();
+    start_keyboard_listener(config.clone(), is_processing.clone(), enter_key_sender);
 
     let (config_reload_sender, config_reload_receiver) = channel();
     let _config_watcher = start_config_watcher(config_reload_sender)?;
 
+    let data_manager = Arc::new(RwLock::new(data_manager));
+
     let mut app = App {
-        message_receiver,
+        is_processing,
+        enter_key_receiver,
         config_reload_receiver,
         tray_menu,
+        hotkey_manager,
         config,
         data_manager,
     };

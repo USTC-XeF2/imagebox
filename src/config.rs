@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::time::Duration;
 
+use global_hotkey::hotkey::{Code, HotKey, Modifiers};
 use notify_debouncer_full::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, new_debouncer};
 use rfd::MessageDialog;
@@ -24,6 +25,10 @@ pub struct Config {
     pub whitelist: Vec<String>,
     #[serde(default = "default_max_image_size")]
     pub max_image_size: usize,
+    #[serde(default = "default_toggle_hotkey")]
+    pub toggle_hotkey: HotKey,
+    #[serde(default = "default_generate_hotkey")]
+    pub generate_hotkey: HotKey,
 }
 
 fn default_true() -> bool {
@@ -47,6 +52,14 @@ fn default_max_image_size() -> usize {
     256
 }
 
+fn default_toggle_hotkey() -> HotKey {
+    HotKey::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyT)
+}
+
+fn default_generate_hotkey() -> HotKey {
+    HotKey::new(Some(Modifiers::CONTROL), Code::KeyE)
+}
+
 impl Default for Config {
     fn default() -> Self {
         Config {
@@ -57,6 +70,8 @@ impl Default for Config {
             enable_whitelist: true,
             whitelist: default_whitelist(),
             max_image_size: default_max_image_size(),
+            toggle_hotkey: default_toggle_hotkey(),
+            generate_hotkey: default_generate_hotkey(),
         }
     }
 }
