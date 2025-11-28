@@ -1,0 +1,81 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact_name: ImageBox.exe
+            asset_name: ImageBox-windows-x86_64.exe
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact_name: ImageBox
+            asset_name: ImageBox-linux-x86_64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact_name: ImageBox
+            asset_name: ImageBox-macos-x86_64
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: ${{ matrix.target }}
+        override: true
+
+    - name: Build release
+      run: cargo build --release --target ${{ matrix.target }}
+
+    - name: Rename artifact
+      shell: bash
+      run: |
+        mkdir -p dist
+        cp target/${{ matrix.target }}/release/${{ matrix.artifact_name }} dist/${{ matrix.asset_name }}
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ matrix.asset_name }}
+        path: dist/${{ matrix.asset_name }}
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Download all artifacts
+      uses: actions/download-artifact@v3
+      with:
+        path: artifacts
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          artifacts/ImageBox-windows-x86_64.exe/ImageBox-windows-x86_64.exe
+          artifacts/ImageBox-linux-x86_64/ImageBox-linux-x86_64
+          artifacts/ImageBox-macos-x86_64/ImageBox-macos-x86_64
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
