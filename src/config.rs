@@ -4,7 +4,7 @@ use std::sync::mpsc::Sender;
 use std::time::Duration;
 
 use notify_debouncer_full::notify::{RecommendedWatcher, RecursiveMode};
-use notify_debouncer_full::{DebounceEventResult, Debouncer, FileIdMap, new_debouncer};
+use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, new_debouncer};
 use rfd::MessageDialog;
 use serde::{Deserialize, Serialize};
 
@@ -157,7 +157,7 @@ impl Config {
 
 pub fn start_config_watcher(
     config_reload_sender: Sender<()>,
-) -> Result<Debouncer<RecommendedWatcher, FileIdMap>, Box<dyn std::error::Error>> {
+) -> Result<Debouncer<RecommendedWatcher, RecommendedCache>, Box<dyn std::error::Error>> {
     let mut debouncer = new_debouncer(
         Duration::from_millis(500),
         None,
