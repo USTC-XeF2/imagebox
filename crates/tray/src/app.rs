@@ -7,8 +7,9 @@ use tray_icon::menu::MenuEvent;
 use winit::application::ApplicationHandler;
 use winit::event_loop::{ActiveEventLoop, ControlFlow};
 
+use imagebox_core::DataManager;
+
 use crate::config::Config;
-use crate::data_manager::DataManager;
 use crate::keyboard::{HotkeyManager, check_whitelist};
 use crate::processor::process_image;
 use crate::tray::{ControlMessage, TrayMenu};
@@ -54,20 +55,20 @@ impl App {
 
         if character_changed {
             let data_manager = self.data_manager.read().unwrap();
-            if data_manager
+            if let Some(character_data) = data_manager
                 .character_configs
-                .contains_key(&new_config.current_character)
+                .get(&new_config.current_character)
             {
-                if let Some(character_data) = data_manager
-                    .character_configs
-                    .get(&new_config.current_character)
-                {
-                    self.tray_menu.update_tooltip(&character_data.name);
-                }
-
                 let mut data_manager = self.data_manager.write().unwrap();
-                data_manager.switch_to_character(&new_config.current_character);
+                if data_manager
+                    .switch_to_character(&new_config.current_character)
+                    .is_err()
+                {
+                    return;
+                }
                 drop(data_manager);
+
+                self.tray_menu.update_tooltip(&character_data.name);
 
                 self.tray_menu
                     .set_selected_character(&new_config.current_character);
@@ -76,7 +77,7 @@ impl App {
     }
 
     fn handle_tray_event(&mut self, event: MenuEvent, event_loop: &ActiveEventLoop) {
-        if let Some(msg) = self.tray_menu.event_to_message(event) {
+        if let Some(msg) = self.tray_menu.event_to_message(&event.id) {
             self.handle_message(msg, event_loop);
         }
     }
@@ -111,16 +112,17 @@ impl App {
     fn handle_message(&mut self, msg: ControlMessage, event_loop: &ActiveEventLoop) {
         match msg {
             ControlMessage::SwitchCharacter(name) => {
-                self.tray_menu.set_selected_character(&name);
+                let mut data_manager = self.data_manager.write().unwrap();
+                if data_manager.switch_to_character(&name).is_err() {
+                    return;
+                }
 
-                let data_manager = self.data_manager.read().unwrap();
                 if let Some(character_data) = data_manager.character_configs.get(&name) {
                     self.tray_menu.update_tooltip(&character_data.name);
                 }
                 drop(data_manager);
 
-                let mut data_manager = self.data_manager.write().unwrap();
-                data_manager.switch_to_character(&name);
+                self.tray_menu.set_selected_character(&name);
 
                 let mut config = self.config.write().unwrap();
                 config.set_current_character(name.to_string()).ok();
@@ -176,7 +178,7 @@ impl App {
         drop(processing);
 
         thread::spawn(move || {
-            process_image(config_clone, data_manager_clone, auto_paste, auto_send);
+            process_image(&config_clone, &data_manager_clone, auto_paste, auto_send);
 
             if let Ok(mut processing) = is_processing_clone.lock() {
                 *processing = false;

@@ -6,8 +6,6 @@ use ab_glyph::FontVec;
 use image::{ImageReader, RgbaImage};
 use rand::Rng;
 
-use crate::data_manager::get_data_dir;
-
 pub fn load_image(path: &PathBuf) -> Option<RgbaImage> {
     match ImageReader::open(path) {
         Ok(reader) => match reader.decode() {
@@ -33,8 +31,7 @@ pub fn load_random_image<T: Rng>(rng: &mut T, paths: &[&PathBuf]) -> Option<Rgba
     None
 }
 
-pub fn load_font(font: &str) -> Option<Arc<FontVec>> {
-    let font_path = get_data_dir().join("fonts").join(font);
+pub fn load_font(font_path: &PathBuf) -> Option<Arc<FontVec>> {
     match fs::read(font_path) {
         Ok(font_data) => match FontVec::try_from_vec(font_data) {
             Ok(font) => Some(Arc::new(font)),

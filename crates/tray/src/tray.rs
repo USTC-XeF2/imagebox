@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 
-use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem};
+use anyhow::Result;
+use tray_icon::menu::{CheckMenuItem, Menu, MenuId, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
-use crate::config::Config;
-use crate::data_manager::CharacterData;
+use imagebox_core::CharacterData;
 
-const ICON_DATA: &[u8] = include_bytes!("../assets/tray.png");
+use crate::config::Config;
+
+const ICON_DATA: &[u8] = include_bytes!("../assets/tray.raw");
 
 pub enum ControlMessage {
     SwitchCharacter(String),
@@ -71,22 +73,22 @@ impl TrayMenu {
         }
     }
 
-    pub fn event_to_message(&self, event: MenuEvent) -> Option<ControlMessage> {
-        if event.id == self.auto_paste_item.id() {
+    pub fn event_to_message(&self, event_id: &MenuId) -> Option<ControlMessage> {
+        if event_id == self.auto_paste_item.id() {
             Some(ControlMessage::ToggleAutoPaste)
-        } else if event.id == self.auto_send_item.id() {
+        } else if event_id == self.auto_send_item.id() {
             Some(ControlMessage::ToggleAutoSend)
-        } else if event.id == self.intercept_item.id() {
+        } else if event_id == self.intercept_item.id() {
             Some(ControlMessage::ToggleIntercept)
-        } else if event.id == self.whitelist_item.id() {
+        } else if event_id == self.whitelist_item.id() {
             Some(ControlMessage::ToggleWhitelist)
-        } else if event.id == self.help_item.id() {
+        } else if event_id == self.help_item.id() {
             Some(ControlMessage::Help)
-        } else if event.id == self.quit_item.id() {
+        } else if event_id == self.quit_item.id() {
             Some(ControlMessage::Quit)
         } else {
             self.character_id_map
-                .get(&event.id)
+                .get(event_id)
                 .map(|name| ControlMessage::SwitchCharacter(name.clone()))
         }
     }
@@ -95,7 +97,7 @@ impl TrayMenu {
 pub fn create_tray_menu(
     character_configs: &HashMap<String, CharacterData>,
     config: &Config,
-) -> Result<TrayMenu, Box<dyn std::error::Error>> {
+) -> Result<TrayMenu> {
     let menu = Menu::new();
 
     let mut character_items = HashMap::new();
@@ -176,22 +178,20 @@ pub fn create_tray_menu(
     Ok(tray_menu)
 }
 
-fn create_icon(grayscale: bool) -> Result<Icon, Box<dyn std::error::Error>> {
-    let img = image::load_from_memory(ICON_DATA)?;
-    let mut rgba = img.to_rgba8();
+fn create_icon(grayscale: bool) -> Result<Icon> {
+    let mut rgba = ICON_DATA.to_vec();
 
     if grayscale {
-        for pixel in rgba.pixels_mut() {
-            let r = pixel[0] as f32;
-            let g = pixel[1] as f32;
-            let b = pixel[2] as f32;
+        for chunk in rgba.chunks_exact_mut(4) {
+            let r = chunk[0] as f32;
+            let g = chunk[1] as f32;
+            let b = chunk[2] as f32;
             let gray = (0.299 * r + 0.587 * g + 0.114 * b) as u8;
-            pixel[0] = gray;
-            pixel[1] = gray;
-            pixel[2] = gray;
+            chunk[0] = gray;
+            chunk[1] = gray;
+            chunk[2] = gray;
         }
     }
 
-    let (width, height) = rgba.dimensions();
-    Icon::from_rgba(rgba.into_raw(), width, height).map_err(|e| e.into())
+    Icon::from_rgba(rgba, 32, 32).map_err(Into::into)
 }

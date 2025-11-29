@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::sync::mpsc::Sender;
 use std::time::Duration;
 
+use anyhow::Result;
 use global_hotkey::hotkey::{Code, HotKey, Modifiers};
 use notify_debouncer_full::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, new_debouncer};
@@ -126,7 +127,7 @@ impl Config {
         default_config
     }
 
-    pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn save(&self) -> Result<()> {
         let config_path = Self::get_config_path();
 
         if let Some(parent) = config_path.parent() {
@@ -138,33 +139,27 @@ impl Config {
         Ok(())
     }
 
-    pub fn set_current_character(
-        &mut self,
-        character: String,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_current_character(&mut self, character: String) -> Result<()> {
         self.current_character = character;
         self.save()
     }
 
-    pub fn set_auto_paste(&mut self, enabled: bool) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_auto_paste(&mut self, enabled: bool) -> Result<()> {
         self.auto_paste = enabled;
         self.save()
     }
 
-    pub fn set_auto_send(&mut self, enabled: bool) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_auto_send(&mut self, enabled: bool) -> Result<()> {
         self.auto_send = enabled;
         self.save()
     }
 
-    pub fn set_intercept_enter(&mut self, enabled: bool) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_intercept_enter(&mut self, enabled: bool) -> Result<()> {
         self.intercept_enter = enabled;
         self.save()
     }
 
-    pub fn set_enable_whitelist(
-        &mut self,
-        enabled: bool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn set_enable_whitelist(&mut self, enabled: bool) -> Result<()> {
         self.enable_whitelist = enabled;
         self.save()
     }
@@ -172,7 +167,7 @@ impl Config {
 
 pub fn start_config_watcher(
     config_reload_sender: Sender<()>,
-) -> Result<Debouncer<RecommendedWatcher, RecommendedCache>, Box<dyn std::error::Error>> {
+) -> Result<Debouncer<RecommendedWatcher, RecommendedCache>> {
     let mut debouncer = new_debouncer(
         Duration::from_millis(500),
         None,

@@ -31,7 +31,7 @@ pub fn check_whitelist(config: &Config) -> bool {
 
     match get_active_window() {
         Ok(active_window) => config.whitelist.contains(&active_window.app_name),
-        Err(_) => false,
+        Err(()) => false,
     }
 }
 
@@ -41,22 +41,11 @@ pub fn start_keyboard_listener(
     enter_key_sender: Sender<()>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        let config_clone = config.clone();
-        let is_processing_clone = is_processing.clone();
-        let enter_key_sender_clone = enter_key_sender.clone();
-
-        thread::spawn(move || {
-            if let Err(error) = grab(move |event| {
-                handle_enter_key(
-                    event,
-                    is_processing_clone.clone(),
-                    config_clone.clone(),
-                    enter_key_sender_clone.clone(),
-                )
-            }) {
-                eprintln!("Error listening for events: {:?}", error);
-            }
-        });
+        if let Err(error) =
+            grab(move |event| handle_enter_key(event, &is_processing, &config, &enter_key_sender))
+        {
+            eprintln!("Error listening for events: {:?}", error);
+        }
     })
 }
 
@@ -97,27 +86,27 @@ impl HotkeyManager {
 
 fn handle_enter_key(
     event: Event,
-    is_processing: Arc<Mutex<bool>>,
-    config: Arc<RwLock<Config>>,
-    enter_key_sender: Sender<()>,
+    is_processing: &Arc<Mutex<bool>>,
+    config: &Arc<RwLock<Config>>,
+    enter_key_sender: &Sender<()>,
 ) -> Option<Event> {
     match event.event_type {
-        EventType::KeyPress(Key::ShiftLeft) | EventType::KeyPress(Key::ShiftRight) => {
+        EventType::KeyPress(Key::ShiftLeft | Key::ShiftRight) => {
             set_modifier_key(SHIFT_MASK, true);
         }
-        EventType::KeyRelease(Key::ShiftLeft) | EventType::KeyRelease(Key::ShiftRight) => {
+        EventType::KeyRelease(Key::ShiftLeft | Key::ShiftRight) => {
             set_modifier_key(SHIFT_MASK, false);
         }
-        EventType::KeyPress(Key::ControlLeft) | EventType::KeyPress(Key::ControlRight) => {
+        EventType::KeyPress(Key::ControlLeft | Key::ControlRight) => {
             set_modifier_key(CTRL_MASK, true);
         }
-        EventType::KeyRelease(Key::ControlLeft) | EventType::KeyRelease(Key::ControlRight) => {
+        EventType::KeyRelease(Key::ControlLeft | Key::ControlRight) => {
             set_modifier_key(CTRL_MASK, false);
         }
-        EventType::KeyPress(Key::Alt) | EventType::KeyPress(Key::AltGr) => {
+        EventType::KeyPress(Key::Alt | Key::AltGr) => {
             set_modifier_key(ALT_MASK, true);
         }
-        EventType::KeyRelease(Key::Alt) | EventType::KeyRelease(Key::AltGr) => {
+        EventType::KeyRelease(Key::Alt | Key::AltGr) => {
             set_modifier_key(ALT_MASK, false);
         }
 

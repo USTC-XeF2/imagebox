@@ -189,7 +189,7 @@ pub fn prepare_textarea(
     let mut best_block_height = 1i32;
 
     while lo <= hi {
-        let mid = (lo + hi) / 2;
+        let mid = u32::midpoint(lo, hi);
         let scale = PxScale::from(mid as f32);
         let lines = wrap_text(text, font, scale, region_width as i32);
 

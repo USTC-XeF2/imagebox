@@ -1,6 +1,3 @@
-mod resource_loader;
-mod textarea;
-
 use std::io::Cursor;
 use std::path::PathBuf;
 
@@ -9,8 +6,8 @@ use image::{Rgba, RgbaImage, imageops};
 use imageproc::drawing::draw_text_mut;
 
 use crate::data_manager::{DataManager, HorizontalAlign, Object, TextAreaConfig, VerticalAlign};
-use resource_loader::{load_font, load_random_image};
-use textarea::prepare_textarea;
+use crate::resource_loader::{load_font, load_random_image};
+use crate::textarea::prepare_textarea;
 
 // 压缩保守系数
 const CONSERVATIVE_FACTOR: f32 = 0.9;
@@ -154,6 +151,7 @@ fn compress_image(img: RgbaImage, target_size_bytes: usize) -> RgbaImage {
     imageops::resize(&img, width, height, imageops::FilterType::Lanczos3)
 }
 
+#[must_use]
 pub fn generate_image(
     data_manager: &DataManager,
     character_name: &str,
@@ -167,7 +165,11 @@ pub fn generate_image(
     let backgrounds_vec: Vec<&PathBuf> = data_manager.backgrounds.iter().collect();
     let mut image = load_random_image(&mut rng, &backgrounds_vec)?;
 
-    let font = load_font(&character_data.font)?;
+    let font_path = data_manager
+        .data_dir
+        .join("fonts")
+        .join(&character_data.font);
+    let font = load_font(&font_path)?;
 
     for object in &character_data.objects {
         match object {

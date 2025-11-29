@@ -2,8 +2,6 @@
 
 mod app;
 mod config;
-mod data_manager;
-mod image_processor;
 mod keyboard;
 mod processor;
 mod tray;
@@ -11,25 +9,41 @@ mod tray;
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex, RwLock};
 
+use anyhow::{Error, Result};
+use rfd::{MessageDialog, MessageLevel};
 use single_instance::SingleInstance;
 use winit::event_loop::EventLoop;
 use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 
+use imagebox_core::DataManager;
+
 use app::App;
 use config::{Config, start_config_watcher};
-use data_manager::DataManager;
 use keyboard::{HotkeyManager, start_keyboard_listener};
 use tray::create_tray_menu;
 
+use crate::config::get_current_dir;
+
 const APP_NAME: &str = "ImageBox_001";
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<()> {
     let instance = SingleInstance::new(APP_NAME).unwrap();
     if !instance.is_single() {
         return Ok(());
     }
 
-    let mut data_manager = DataManager::init();
+    let show_resource_error = |e: Error| {
+        MessageDialog::new()
+            .set_level(MessageLevel::Error)
+            .set_title("资源加载失败")
+            .set_description(format!("{}", e))
+            .show();
+        e
+    };
+
+    let data_dir = get_current_dir().join("data");
+    let mut data_manager = DataManager::new(data_dir).map_err(show_resource_error)?;
+
     let characters = data_manager
         .character_configs
         .keys()
@@ -37,15 +51,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .collect::<Vec<String>>();
 
     let config = Config::load();
-    let config = if !characters.contains(&config.current_character) {
+    let config = if characters.contains(&config.current_character) {
+        config
+    } else {
         let mut new_config = config;
         new_config.set_current_character(characters[0].clone()).ok();
         new_config
-    } else {
-        config
     };
 
-    data_manager.switch_to_character(&config.current_character);
+    data_manager
+        .switch_to_character(&config.current_character)
+        .map_err(show_resource_error)?;
 
     let tray_menu = create_tray_menu(&data_manager.character_configs, &config)?;
 

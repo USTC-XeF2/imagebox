@@ -5,9 +5,9 @@ use std::time::Duration;
 use arboard::{Clipboard, ImageData};
 use enigo::{Direction, Enigo, Key as EnigoKey, Keyboard, Settings};
 
+use imagebox_core::{DataManager, generate_image};
+
 use crate::config::Config;
-use crate::data_manager::DataManager;
-use crate::image_processor::generate_image;
 
 fn simulate_key_combo(enigo: &mut Enigo, key: char) {
     enigo.key(EnigoKey::Control, Direction::Press).ok();
@@ -18,23 +18,17 @@ fn simulate_key_combo(enigo: &mut Enigo, key: char) {
 }
 
 pub fn process_image(
-    config: Arc<RwLock<Config>>,
-    data_manager: Arc<RwLock<DataManager>>,
+    config: &Arc<RwLock<Config>>,
+    data_manager: &Arc<RwLock<DataManager>>,
     paste: bool,
     send: bool,
 ) {
-    let mut clipboard = match Clipboard::new() {
-        Ok(cb) => cb,
-        Err(_) => {
-            return;
-        }
+    let Ok(mut clipboard) = Clipboard::new() else {
+        return;
     };
 
-    let mut enigo = match Enigo::new(&Settings::default()) {
-        Ok(e) => e,
-        Err(_) => {
-            return;
-        }
+    let Ok(mut enigo) = Enigo::new(&Settings::default()) else {
+        return;
     };
 
     simulate_key_combo(&mut enigo, 'a');
@@ -43,11 +37,8 @@ pub fn process_image(
     simulate_key_combo(&mut enigo, 'c');
     thread::sleep(Duration::from_millis(30));
 
-    let copied_content = match clipboard.get_text() {
-        Ok(text) => text,
-        Err(_) => {
-            return;
-        }
+    let Ok(copied_content) = clipboard.get_text() else {
+        return;
     };
 
     if copied_content.is_empty() {
