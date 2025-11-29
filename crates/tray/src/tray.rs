@@ -6,7 +6,7 @@ use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
 use imagebox_core::CharacterData;
 
-use crate::config::Config;
+use crate::config::{Config, ProcessMode};
 
 const ICON_DATA: &[u8] = include_bytes!("../assets/tray.raw");
 
@@ -59,12 +59,9 @@ impl TrayMenu {
         self.whitelist_item.set_checked(enabled);
     }
 
-    pub fn set_auto_paste_enabled(&self, enabled: bool) {
-        self.auto_paste_item.set_checked(enabled);
-    }
-
-    pub fn set_auto_send_enabled(&self, enabled: bool) {
-        self.auto_send_item.set_checked(enabled);
+    pub fn set_process_mode(&self, mode: ProcessMode) {
+        self.auto_paste_item.set_checked(mode != ProcessMode::Copy);
+        self.auto_send_item.set_checked(mode == ProcessMode::Send);
     }
 
     pub fn set_selected_character(&self, character_id: &str) {
@@ -119,10 +116,20 @@ pub fn create_tray_menu(
 
     menu.append(&PredefinedMenuItem::separator())?;
 
-    let auto_paste_item = CheckMenuItem::new("自动粘贴", true, config.auto_paste, None);
+    let auto_paste_item = CheckMenuItem::new(
+        "自动粘贴",
+        true,
+        config.process_mode != ProcessMode::Copy,
+        None,
+    );
     menu.append(&auto_paste_item)?;
 
-    let auto_send_item = CheckMenuItem::new("自动发送", true, config.auto_send, None);
+    let auto_send_item = CheckMenuItem::new(
+        "自动发送",
+        true,
+        config.process_mode == ProcessMode::Send,
+        None,
+    );
     menu.append(&auto_send_item)?;
 
     menu.append(&PredefinedMenuItem::separator())?;

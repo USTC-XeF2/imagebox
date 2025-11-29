@@ -10,34 +10,39 @@ use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, ne
 use rfd::MessageDialog;
 use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Clone, Copy, Default, PartialEq)]
+#[serde(rename_all = "lowercase")]
+pub enum ProcessMode {
+    Copy,
+    #[default]
+    Paste,
+    Send,
+}
+
 #[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct Config {
     #[serde(default)]
     pub current_character: String,
-    #[serde(default = "default_true")]
-    pub auto_paste: bool,
-    #[serde(default = "default_false")]
-    pub auto_send: bool,
-    #[serde(default = "default_false")]
+    #[serde(default)]
+    pub process_mode: ProcessMode,
+    #[serde(default)]
     pub intercept_enter: bool,
-    #[serde(default = "default_true")]
+    #[serde(default = "default_enable_whitelist")]
     pub enable_whitelist: bool,
     #[serde(default = "default_whitelist")]
     pub whitelist: Vec<String>,
     #[serde(default = "default_max_image_size")]
     pub max_image_size: usize,
+    #[serde(default = "default_max_chars")]
+    pub max_chars: usize,
     #[serde(default = "default_toggle_hotkey")]
     pub toggle_hotkey: HotKey,
     #[serde(default = "default_generate_hotkey")]
     pub generate_hotkey: HotKey,
 }
 
-fn default_true() -> bool {
+fn default_enable_whitelist() -> bool {
     true
-}
-
-fn default_false() -> bool {
-    false
 }
 
 fn default_whitelist() -> Vec<String> {
@@ -53,6 +58,10 @@ fn default_max_image_size() -> usize {
     256
 }
 
+fn default_max_chars() -> usize {
+    50
+}
+
 fn default_toggle_hotkey() -> HotKey {
     HotKey::new(Some(Modifiers::CONTROL | Modifiers::ALT), Code::KeyT)
 }
@@ -65,12 +74,12 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             current_character: String::new(),
-            auto_paste: true,
-            auto_send: false,
+            process_mode: ProcessMode::default(),
             intercept_enter: false,
             enable_whitelist: true,
             whitelist: default_whitelist(),
             max_image_size: default_max_image_size(),
+            max_chars: default_max_chars(),
             toggle_hotkey: default_toggle_hotkey(),
             generate_hotkey: default_generate_hotkey(),
         }
@@ -144,13 +153,8 @@ impl Config {
         self.save()
     }
 
-    pub fn set_auto_paste(&mut self, enabled: bool) -> Result<()> {
-        self.auto_paste = enabled;
-        self.save()
-    }
-
-    pub fn set_auto_send(&mut self, enabled: bool) -> Result<()> {
-        self.auto_send = enabled;
+    pub fn set_process_mode(&mut self, mode: ProcessMode) -> Result<()> {
+        self.process_mode = mode;
         self.save()
     }
 

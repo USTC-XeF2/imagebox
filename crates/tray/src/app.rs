@@ -9,7 +9,7 @@ use winit::event_loop::{ActiveEventLoop, ControlFlow};
 
 use imagebox_core::DataManager;
 
-use crate::config::Config;
+use crate::config::{Config, ProcessMode};
 use crate::keyboard::{HotkeyManager, check_whitelist};
 use crate::processor::process_image;
 use crate::tray::{ControlMessage, TrayMenu};
@@ -46,8 +46,7 @@ impl App {
             *config = new_config.clone();
         }
 
-        self.tray_menu.set_auto_paste_enabled(new_config.auto_paste);
-        self.tray_menu.set_auto_send_enabled(new_config.auto_send);
+        self.tray_menu.set_process_mode(new_config.process_mode);
         self.tray_menu
             .set_intercept_enter(new_config.intercept_enter);
         self.tray_menu
@@ -94,17 +93,13 @@ impl App {
         if event.id == self.hotkey_manager.toggle_hotkey.id() {
             self.handle_message(ControlMessage::ToggleIntercept, event_loop);
         } else if event.id == self.hotkey_manager.generate_hotkey.id() {
-            let (should_process, auto_paste, auto_send) = {
+            let (should_process, process_mode) = {
                 let config_guard = self.config.read().unwrap();
-                (
-                    check_whitelist(&config_guard),
-                    config_guard.auto_paste,
-                    config_guard.auto_send,
-                )
+                (check_whitelist(&config_guard), config_guard.process_mode)
             };
 
             if should_process {
-                self.process_image_in_thread(auto_paste, auto_send);
+                self.process_image_in_thread(process_mode, false);
             }
         }
     }
@@ -129,17 +124,23 @@ impl App {
             }
             ControlMessage::ToggleAutoPaste => {
                 let mut config = self.config.write().unwrap();
-                let new_enabled = !config.auto_paste;
-                config.set_auto_paste(new_enabled).ok();
+                let new_mode = match config.process_mode {
+                    ProcessMode::Copy => ProcessMode::Paste,
+                    _ => ProcessMode::Copy,
+                };
+                config.set_process_mode(new_mode).ok();
 
-                self.tray_menu.set_auto_paste_enabled(new_enabled);
+                self.tray_menu.set_process_mode(new_mode);
             }
             ControlMessage::ToggleAutoSend => {
                 let mut config = self.config.write().unwrap();
-                let new_enabled = !config.auto_send;
-                config.set_auto_send(new_enabled).ok();
+                let new_mode = match config.process_mode {
+                    ProcessMode::Send => ProcessMode::Paste,
+                    _ => ProcessMode::Send,
+                };
+                config.set_process_mode(new_mode).ok();
 
-                self.tray_menu.set_auto_send_enabled(new_enabled);
+                self.tray_menu.set_process_mode(new_mode);
             }
             ControlMessage::ToggleIntercept => {
                 let mut config = self.config.write().unwrap();
@@ -164,7 +165,7 @@ impl App {
         }
     }
 
-    fn process_image_in_thread(&self, auto_paste: bool, auto_send: bool) {
+    fn process_image_in_thread(&self, process_mode: ProcessMode, enable_max_chars: bool) {
         let mut processing = self.is_processing.lock().unwrap();
         if *processing {
             return;
@@ -178,7 +179,12 @@ impl App {
         drop(processing);
 
         thread::spawn(move || {
-            process_image(&config_clone, &data_manager_clone, auto_paste, auto_send);
+            process_image(
+                &config_clone,
+                &data_manager_clone,
+                process_mode,
+                enable_max_chars,
+            );
 
             if let Ok(mut processing) = is_processing_clone.lock() {
                 *processing = false;
@@ -217,7 +223,7 @@ impl ApplicationHandler for App {
         }
 
         if self.enter_key_receiver.try_recv().is_ok() {
-            self.process_image_in_thread(true, true);
+            self.process_image_in_thread(ProcessMode::Send, true);
         }
 
         std::thread::sleep(std::time::Duration::from_millis(10));
