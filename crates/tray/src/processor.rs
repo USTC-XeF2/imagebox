@@ -66,8 +66,8 @@ pub fn process_image(
             &copied_content,
             max_image_size,
         ) {
-            Some(img) => img,
-            None => {
+            Ok(img) => img,
+            Err(_) => {
                 return;
             }
         }

@@ -37,8 +37,8 @@ impl App {
             e
         };
 
-        let data_dir = work_dir.join("data");
-        let mut data_manager = DataManager::new(data_dir).map_err(show_resource_error)?;
+        let data_config_path = work_dir.join("data/data.json");
+        let data_manager = DataManager::new(&data_config_path).map_err(show_resource_error)?;
         let characters = data_manager
             .character_configs
             .keys()
@@ -64,10 +64,6 @@ impl App {
         }
 
         let config = config_manager.get_config();
-        let current_character = config.current_character.clone();
-        data_manager
-            .switch_to_character(&current_character)
-            .map_err(show_resource_error)?;
 
         let tray_menu = create_tray_menu(&data_manager.character_configs, config)?;
 
@@ -114,15 +110,12 @@ impl App {
         if let Some(character_data) = data_manager.character_configs.get(&current_character) {
             let character_name = character_data.name.clone();
             drop(data_manager);
-            let mut data_manager = self.data_manager.write().unwrap();
-            if data_manager.switch_to_character(&current_character).is_ok() {
-                self.tray_menu.update_tooltip(&character_name);
-                self.tray_menu.set_selected_character(&current_character);
-            }
+            self.tray_menu.update_tooltip(&character_name);
+            self.tray_menu.set_selected_character(&current_character);
         }
     }
 
-    fn handle_hotkey_event(&mut self, event: &GlobalHotKeyEvent, event_loop: &ActiveEventLoop) {
+    fn handle_hotkey_event(&mut self, event: GlobalHotKeyEvent, event_loop: &ActiveEventLoop) {
         if event.state == HotKeyState::Released {
             return;
         }
@@ -144,21 +137,16 @@ impl App {
 
     fn handle_message(&mut self, msg: ControlMessage, event_loop: &ActiveEventLoop) {
         match msg {
-            ControlMessage::SwitchCharacter(name) => {
-                let mut data_manager = self.data_manager.write().unwrap();
-                if data_manager.switch_to_character(&name).is_err() {
-                    return;
-                }
-
-                if let Some(character_data) = data_manager.character_configs.get(&name) {
+            ControlMessage::SwitchCharacter(id) => {
+                let data_manager = self.data_manager.read().unwrap();
+                if let Some(character_data) = data_manager.character_configs.get(&id) {
                     self.tray_menu.update_tooltip(&character_data.name);
+                    self.tray_menu.set_selected_character(&id);
+                    drop(data_manager);
+
+                    let mut config_manager = self.config_manager.write().unwrap();
+                    config_manager.set_current_character(id.to_string()).ok();
                 }
-                drop(data_manager);
-
-                self.tray_menu.set_selected_character(&name);
-
-                let mut config_manager = self.config_manager.write().unwrap();
-                config_manager.set_current_character(name.to_string()).ok();
             }
             ControlMessage::ToggleAutoPaste => {
                 let mut config_manager = self.config_manager.write().unwrap();
@@ -254,7 +242,7 @@ impl ApplicationHandler for App {
 
         let hotkey_receiver = GlobalHotKeyEvent::receiver();
         if let Ok(event) = hotkey_receiver.try_recv() {
-            self.handle_hotkey_event(&event, event_loop);
+            self.handle_hotkey_event(event, event_loop);
         }
 
         if self.enter_key_receiver.try_recv().is_ok() {

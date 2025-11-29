@@ -1,12 +1,12 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use ab_glyph::FontVec;
 use image::{ImageReader, RgbaImage};
 use rand::Rng;
 
-pub fn load_image(path: &PathBuf) -> Option<RgbaImage> {
+pub fn load_image(path: &Path) -> Option<RgbaImage> {
     match ImageReader::open(path) {
         Ok(reader) => match reader.decode() {
             Ok(img) => Some(img.to_rgba8()),
@@ -31,7 +31,7 @@ pub fn load_random_image<T: Rng>(rng: &mut T, paths: &[&PathBuf]) -> Option<Rgba
     None
 }
 
-pub fn load_font(font_path: &PathBuf) -> Option<Arc<FontVec>> {
+pub fn load_font(font_path: &Path) -> Option<Arc<FontVec>> {
     match fs::read(font_path) {
         Ok(font_data) => match FontVec::try_from_vec(font_data) {
             Ok(font) => Some(Arc::new(font)),

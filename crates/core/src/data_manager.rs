@@ -2,63 +2,57 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use anyhow::{Context, Result, anyhow};
-use image::Rgba;
-use serde::{Deserialize, Serialize};
+use anyhow::{Context, Result, anyhow, bail};
 
-#[derive(Clone)]
+use crate::data::{BLACK, CharacterData, DataConfig, Object};
+
 pub struct DataManager {
-    pub data_dir: PathBuf,
-    pub backgrounds: Vec<PathBuf>,
-    pub character_imgs: HashMap<String, Vec<PathBuf>>,
+    data_dir: PathBuf,
     pub character_configs: HashMap<String, CharacterData>,
 }
 
 impl DataManager {
-    pub fn new(data_dir: PathBuf) -> Result<Self> {
-        if !data_dir.exists() || !data_dir.is_dir() {
-            return Err(anyhow!("data 文件夹不存在"));
+    pub fn new(config_path: &Path) -> Result<Self> {
+        if !config_path.exists() || !config_path.is_file() {
+            bail!("资源配置文件不存在");
         }
 
-        let character_configs = load_data_json(&data_dir)?;
+        let content = fs::read_to_string(config_path).context("读取资源配置文件失败")?;
+        let character_configs = load_data(&content)?;
         if character_configs.is_empty() {
-            return Err(anyhow!("data.json 中没有角色配置"));
-        }
-
-        for (name, config) in &character_configs {
-            if !data_dir.join("fonts").join(&config.font).exists() {
-                return Err(anyhow!("角色 '{}' 的字体文件不存在: {}", name, config.font));
-            }
+            bail!("资源配置中没有角色");
         }
 
         Ok(DataManager {
-            data_dir,
-            backgrounds: Vec::new(),
-            character_imgs: HashMap::new(),
+            data_dir: config_path.parent().unwrap().to_path_buf(),
             character_configs,
         })
     }
 
-    pub fn switch_to_character(&mut self, character_name: &str) -> Result<()> {
-        let character_config = self
-            .character_configs
-            .get(character_name)
-            .ok_or_else(|| anyhow!("角色配置不存在: {}", character_name))?;
-
+    pub fn get_backgrounds(&self, character_id: &str) -> Option<Vec<PathBuf>> {
+        let character_config = self.character_configs.get(character_id)?;
         let background_dir = self.data_dir.join("backgrounds");
         let mut backgrounds = Vec::new();
+
         for pattern in &character_config.backgrounds {
             let paths = collect_image_paths(&background_dir, pattern);
             backgrounds.extend(paths);
         }
 
         if backgrounds.is_empty() {
-            return Err(anyhow!("角色 '{}' 没有可用的背景图片", character_name));
+            return None;
         }
 
         backgrounds.sort_unstable();
         backgrounds.dedup();
-        self.backgrounds = backgrounds;
+        Some(backgrounds)
+    }
+
+    pub fn get_character_images(
+        &self,
+        character_id: &str,
+    ) -> Option<HashMap<String, Vec<PathBuf>>> {
+        let character_config = self.character_configs.get(character_id)?;
 
         let mut image_patterns = Vec::new();
         for object in &character_config.objects {
@@ -73,136 +67,18 @@ impl DataManager {
         let images_dir = self.data_dir.join("images");
         let mut character_imgs = HashMap::new();
         for pattern in &image_patterns {
-            let resolved_pattern = pattern.replace("%c", character_name);
+            let resolved_pattern = pattern.replace("%c", character_id);
             let paths = collect_image_paths(&images_dir, &resolved_pattern);
             character_imgs.insert(pattern.clone(), paths);
         }
-        self.character_imgs = character_imgs;
-        Ok(())
+
+        Some(character_imgs)
     }
-}
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(untagged)]
-pub enum ColorInput {
-    RgbaArr([u8; 4]),
-    RgbArr([u8; 3]),
-    Literal(String),
-}
-
-const BLACK: Rgba<u8> = Rgba([0, 0, 0, 255]);
-const WHITE: Rgba<u8> = Rgba([255, 255, 255, 255]);
-
-impl ColorInput {
-    pub fn to_rgba(&self, primary: Rgba<u8>) -> Rgba<u8> {
-        match self {
-            ColorInput::RgbaArr(c) => Rgba(*c),
-            ColorInput::RgbArr([r, g, b]) => Rgba([*r, *g, *b, 255]),
-            ColorInput::Literal(s) => match s.as_str() {
-                "primary" => primary,
-                "white" => WHITE,
-                _ => BLACK,
-            },
-        }
+    pub fn get_font_path(&self, character_id: &str) -> Option<PathBuf> {
+        let character_config = self.character_configs.get(character_id)?;
+        Some(self.data_dir.join("fonts").join(&character_config.font))
     }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(tag = "type")]
-#[serde(rename_all = "lowercase")]
-pub enum Object {
-    Text {
-        text: String,
-        position: [i32; 2],
-        font_color: ColorInput,
-        font_size: u32,
-    },
-    Image {
-        position: [i32; 2],
-        path: Vec<String>,
-    },
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum HorizontalAlign {
-    #[default]
-    Left,
-    Center,
-    Right,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
-#[serde(rename_all = "lowercase")]
-pub enum VerticalAlign {
-    #[default]
-    Top,
-    Middle,
-    Bottom,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct TextAreaConfig {
-    pub position: [i32; 2],
-    pub size: [u32; 2],
-    pub font_color: ColorInput,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub highlight: Option<ColorInput>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_font_size: Option<u32>,
-    #[serde(default)]
-    pub shadow_offset: (i32, i32),
-    #[serde(default)]
-    pub line_spacing: f32,
-    #[serde(default)]
-    pub align: HorizontalAlign,
-    #[serde(default)]
-    pub valign: VerticalAlign,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct CharacterDataRaw {
-    pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub backgrounds: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub font: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub primary_color: Option<ColorInput>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub objects: Option<Vec<Object>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub textarea: Option<TextAreaConfig>,
-}
-
-#[derive(Debug, Clone)]
-pub struct CharacterData {
-    pub name: String,
-    pub backgrounds: Vec<String>,
-    pub font: String,
-    pub primary_color: Rgba<u8>,
-    pub objects: Vec<Object>,
-    pub textarea: TextAreaConfig,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct TemplateConfig {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub backgrounds: Option<Vec<String>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub font: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub primary_color: Option<ColorInput>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub objects: Option<Vec<Object>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub textarea: Option<TextAreaConfig>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct DataConfig {
-    pub template: TemplateConfig,
-    pub characters: HashMap<String, CharacterDataRaw>,
 }
 
 fn collect_image_paths(dir: &Path, pattern: &str) -> Vec<PathBuf> {
@@ -225,16 +101,8 @@ fn collect_image_paths(dir: &Path, pattern: &str) -> Vec<PathBuf> {
     path_list
 }
 
-fn load_data_json(data_dir: &Path) -> Result<HashMap<String, CharacterData>> {
-    let data_json_path = data_dir.join("data.json");
-
-    if !data_json_path.exists() {
-        return Err(anyhow!("data.json 不存在"));
-    }
-
-    let content = fs::read_to_string(&data_json_path).context("读取 data.json 失败")?;
-
-    let config = serde_json::from_str::<DataConfig>(&content).context("解析 data.json 失败")?;
+pub fn load_data(content: &str) -> Result<HashMap<String, CharacterData>> {
+    let config = serde_json::from_str::<DataConfig>(content).context("解析资源配置失败")?;
 
     let template = config.template;
     let mut result = HashMap::new();
@@ -249,7 +117,7 @@ fn load_data_json(data_dir: &Path) -> Result<HashMap<String, CharacterData>> {
         }
 
         if backgrounds.is_empty() {
-            return Err(anyhow!("角色 '{}' 缺少 backgrounds 配置", key));
+            bail!("角色 '{}' 缺少 backgrounds 配置", key);
         }
 
         backgrounds.sort_unstable();

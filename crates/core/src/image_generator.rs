@@ -2,10 +2,12 @@ use std::io::Cursor;
 use std::path::PathBuf;
 
 use ab_glyph::{FontVec, PxScale};
+use anyhow::{Result, anyhow};
 use image::{Rgba, RgbaImage, imageops};
 use imageproc::drawing::draw_text_mut;
 
-use crate::data_manager::{DataManager, HorizontalAlign, Object, TextAreaConfig, VerticalAlign};
+use crate::data::{HorizontalAlign, Object, TextAreaConfig, VerticalAlign};
+use crate::data_manager::DataManager;
 use crate::resource_loader::{load_font, load_random_image};
 use crate::textarea::prepare_textarea;
 
@@ -151,25 +153,31 @@ fn compress_image(img: RgbaImage, target_size_bytes: usize) -> RgbaImage {
     imageops::resize(&img, width, height, imageops::FilterType::Lanczos3)
 }
 
-#[must_use]
 pub fn generate_image(
     data_manager: &DataManager,
-    character_name: &str,
+    character_id: &str,
     text: &str,
     max_size: usize,
-) -> Option<RgbaImage> {
-    let character_data = data_manager.character_configs.get(character_name)?;
+) -> Result<RgbaImage> {
+    let character_data = data_manager
+        .character_configs
+        .get(character_id)
+        .ok_or_else(|| anyhow!("角色 '{}' 不存在", character_id))?;
 
     let mut rng = rand::rng();
 
-    let backgrounds_vec: Vec<&PathBuf> = data_manager.backgrounds.iter().collect();
-    let mut image = load_random_image(&mut rng, &backgrounds_vec)?;
+    let backgrounds = data_manager
+        .get_backgrounds(character_id)
+        .ok_or_else(|| anyhow!("角色 '{}' 没有可用的背景图片", character_id))?;
+    let backgrounds_vec: Vec<&PathBuf> = backgrounds.iter().collect();
+    let mut image = load_random_image(&mut rng, &backgrounds_vec)
+        .ok_or_else(|| anyhow!("无法加载角色 '{}' 的背景图片", character_id))?;
 
-    let font_path = data_manager
-        .data_dir
-        .join("fonts")
-        .join(&character_data.font);
-    let font = load_font(&font_path)?;
+    let font_path = data_manager.get_font_path(character_id).unwrap();
+    let font = load_font(&font_path)
+        .ok_or_else(|| anyhow!("无法加载角色 '{}' 的字体文件", character_id))?;
+
+    let character_imgs = data_manager.get_character_images(character_id).unwrap();
 
     for object in &character_data.objects {
         match object {
@@ -177,7 +185,7 @@ pub fn generate_image(
                 let mut available_imgs = Vec::new();
 
                 for pattern in path {
-                    if let Some(imgs) = data_manager.character_imgs.get(pattern) {
+                    if let Some(imgs) = character_imgs.get(pattern) {
                         available_imgs.extend(imgs);
                     }
                 }
@@ -222,7 +230,7 @@ pub fn generate_image(
         character_data.primary_color,
     );
 
-    Some(if max_size > 0 {
+    Ok(if max_size > 0 {
         compress_image(image, max_size * 1024)
     } else {
         image
