@@ -1,4 +1,3 @@
-use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
@@ -19,7 +18,7 @@ fn simulate_key_combo(enigo: &mut Enigo, key: char) {
 
 pub fn process_image(
     config: &Config,
-    data_manager: &Arc<RwLock<DataManager>>,
+    data_manager: &DataManager,
     mode: ProcessMode,
     enable_max_chars: bool,
 ) {
@@ -59,9 +58,8 @@ pub fn process_image(
     }
 
     let image = {
-        let data_manager_guard = data_manager.read().unwrap();
         match generate_image(
-            &data_manager_guard,
+            data_manager,
             &current_character,
             &copied_content,
             max_image_size,

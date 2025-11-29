@@ -18,12 +18,12 @@ use crate::processor::process_image;
 use crate::tray::{ControlMessage, TrayMenu, create_tray_menu};
 
 pub struct App {
-    pub is_processing: Arc<Mutex<bool>>,
-    pub enter_key_receiver: Receiver<()>,
-    pub tray_menu: TrayMenu,
-    pub hotkey_manager: HotkeyManager,
-    pub config_manager: Arc<RwLock<ConfigManager>>,
-    pub data_manager: Arc<RwLock<DataManager>>,
+    data_manager: Arc<DataManager>,
+    is_processing: Arc<Mutex<bool>>,
+    enter_key_receiver: Receiver<()>,
+    tray_menu: TrayMenu,
+    hotkey_manager: HotkeyManager,
+    config_manager: Arc<RwLock<ConfigManager>>,
 }
 
 impl App {
@@ -79,15 +79,15 @@ impl App {
             enter_key_sender,
         );
 
-        let data_manager = Arc::new(RwLock::new(data_manager));
+        let data_manager = Arc::new(data_manager);
 
         Ok(Self {
+            data_manager,
             is_processing,
             enter_key_receiver,
             tray_menu,
             hotkey_manager,
             config_manager,
-            data_manager,
         })
     }
 
@@ -106,10 +106,8 @@ impl App {
         let current_character = new_config.current_character.clone();
         drop(config_manager);
 
-        let data_manager = self.data_manager.read().unwrap();
-        if let Some(character_data) = data_manager.character_configs.get(&current_character) {
+        if let Some(character_data) = self.data_manager.character_configs.get(&current_character) {
             let character_name = character_data.name.clone();
-            drop(data_manager);
             self.tray_menu.update_tooltip(&character_name);
             self.tray_menu.set_selected_character(&current_character);
         }
@@ -138,11 +136,9 @@ impl App {
     fn handle_message(&mut self, msg: ControlMessage, event_loop: &ActiveEventLoop) {
         match msg {
             ControlMessage::SwitchCharacter(id) => {
-                let data_manager = self.data_manager.read().unwrap();
-                if let Some(character_data) = data_manager.character_configs.get(&id) {
+                if let Some(character_data) = self.data_manager.character_configs.get(&id) {
                     self.tray_menu.update_tooltip(&character_data.name);
                     self.tray_menu.set_selected_character(&id);
-                    drop(data_manager);
 
                     let mut config_manager = self.config_manager.write().unwrap();
                     config_manager.set_current_character(id.to_string()).ok();
@@ -199,13 +195,13 @@ impl App {
         *processing = true;
 
         let is_processing_clone = self.is_processing.clone();
-        let data_manager_clone = self.data_manager.clone();
+        let data_manager = self.data_manager.clone();
         let config = self.config_manager.read().unwrap().get_config().clone();
 
         drop(processing);
 
         thread::spawn(move || {
-            process_image(&config, &data_manager_clone, process_mode, enable_max_chars);
+            process_image(&config, &data_manager, process_mode, enable_max_chars);
 
             if let Ok(mut processing) = is_processing_clone.lock() {
                 *processing = false;
