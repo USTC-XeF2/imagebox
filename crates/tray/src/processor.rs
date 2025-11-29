@@ -18,7 +18,7 @@ fn simulate_key_combo(enigo: &mut Enigo, key: char) {
 }
 
 pub fn process_image(
-    config: &Arc<RwLock<Config>>,
+    config: &Config,
     data_manager: &Arc<RwLock<DataManager>>,
     mode: ProcessMode,
     enable_max_chars: bool,
@@ -45,14 +45,9 @@ pub fn process_image(
         return;
     }
 
-    let (current_character, max_image_size, max_chars) = {
-        let config_guard = config.read().unwrap();
-        (
-            config_guard.current_character.clone(),
-            config_guard.max_image_size,
-            config_guard.max_chars,
-        )
-    };
+    let current_character = config.current_character.clone();
+    let max_image_size = config.max_image_size;
+    let max_chars = config.max_chars;
 
     if mode == ProcessMode::Send
         && enable_max_chars

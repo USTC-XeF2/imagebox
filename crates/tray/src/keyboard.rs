@@ -8,7 +8,7 @@ use global_hotkey::GlobalHotKeyManager;
 use global_hotkey::hotkey::HotKey;
 use rdev::{Event, EventType, Key, grab};
 
-use crate::config::Config;
+use crate::config::{Config, ConfigManager};
 
 const SHIFT_MASK: u8 = 0b001;
 const CTRL_MASK: u8 = 0b010;
@@ -33,20 +33,6 @@ pub fn check_whitelist(config: &Config) -> bool {
         Ok(active_window) => config.whitelist.contains(&active_window.app_name),
         Err(()) => false,
     }
-}
-
-pub fn start_keyboard_listener(
-    config: Arc<RwLock<Config>>,
-    is_processing: Arc<Mutex<bool>>,
-    enter_key_sender: Sender<()>,
-) -> thread::JoinHandle<()> {
-    thread::spawn(move || {
-        if let Err(error) =
-            grab(move |event| handle_enter_key(event, &is_processing, &config, &enter_key_sender))
-        {
-            eprintln!("Error listening for events: {:?}", error);
-        }
-    })
 }
 
 pub struct HotkeyManager {
@@ -84,10 +70,24 @@ impl HotkeyManager {
     }
 }
 
+pub fn start_keyboard_listener(
+    config_manager: Arc<RwLock<ConfigManager>>,
+    is_processing: Arc<Mutex<bool>>,
+    enter_key_sender: Sender<()>,
+) -> thread::JoinHandle<()> {
+    thread::spawn(move || {
+        if let Err(error) = grab(move |event| {
+            handle_enter_key(event, &is_processing, &config_manager, &enter_key_sender)
+        }) {
+            eprintln!("Error listening for events: {:?}", error);
+        }
+    })
+}
+
 fn handle_enter_key(
     event: Event,
     is_processing: &Arc<Mutex<bool>>,
-    config: &Arc<RwLock<Config>>,
+    config_manager: &Arc<RwLock<ConfigManager>>,
     enter_key_sender: &Sender<()>,
 ) -> Option<Event> {
     match event.event_type {
@@ -116,8 +116,9 @@ fn handle_enter_key(
             }
 
             {
-                let config_guard = config.read().unwrap();
-                if !config_guard.intercept_enter || !check_whitelist(&config_guard) {
+                let config_manager_guard = config_manager.read().unwrap();
+                let config = config_manager_guard.get_config();
+                if !config.intercept_enter || !check_whitelist(config) {
                     return Some(event);
                 }
             };

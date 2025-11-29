@@ -1,13 +1,13 @@
 use std::fs;
 use std::path::PathBuf;
-use std::sync::mpsc::Sender;
+use std::sync::Mutex;
+use std::sync::mpsc::{Receiver, channel};
 use std::time::Duration;
 
 use anyhow::Result;
 use global_hotkey::hotkey::{Code, HotKey, Modifiers};
 use notify_debouncer_full::notify::{RecommendedWatcher, RecursiveMode};
 use notify_debouncer_full::{DebounceEventResult, Debouncer, RecommendedCache, new_debouncer};
-use rfd::MessageDialog;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Copy, Default, PartialEq)]
@@ -86,59 +86,19 @@ impl Default for Config {
     }
 }
 
-pub fn get_current_dir() -> PathBuf {
-    #[cfg(debug_assertions)]
-    {
-        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
-    }
-
-    #[cfg(not(debug_assertions))]
-    {
-        std::env::current_exe()
-            .ok()
-            .and_then(|path| path.parent().map(|p| p.to_path_buf()))
-            .unwrap_or_else(|| PathBuf::from("."))
-    }
-}
-
-fn show_first_launch_guide() {
-    MessageDialog::new()
-        .set_title("欢迎使用 ImageBox")
-        .set_description("感谢您使用 ImageBox！\n\n请通过系统托盘图标访问控制菜单。")
-        .show();
-}
-
 impl Config {
-    fn get_config_path() -> PathBuf {
-        get_current_dir().join("config.yaml")
-    }
-
-    pub fn load() -> Self {
-        let config_path = Self::get_config_path();
-        let is_first_launch = !config_path.exists();
-
+    fn load(config_path: &PathBuf) -> Self {
         if config_path.exists()
-            && let Ok(content) = fs::read_to_string(&config_path)
+            && let Ok(content) = fs::read_to_string(config_path)
             && let Ok(config) = serde_yaml::from_str(&content)
         {
-            let loaded_config: Config = config;
-            loaded_config.save().ok();
-            return loaded_config;
+            config
+        } else {
+            Config::default()
         }
-
-        let default_config = Config::default();
-        default_config.save().ok();
-
-        if is_first_launch {
-            show_first_launch_guide();
-        }
-
-        default_config
     }
 
-    pub fn save(&self) -> Result<()> {
-        let config_path = Self::get_config_path();
-
+    fn save(&self, config_path: &PathBuf) -> Result<()> {
         if let Some(parent) = config_path.parent() {
             fs::create_dir_all(parent)?;
         }
@@ -147,49 +107,92 @@ impl Config {
         fs::write(config_path, yaml)?;
         Ok(())
     }
-
-    pub fn set_current_character(&mut self, character: String) -> Result<()> {
-        self.current_character = character;
-        self.save()
-    }
-
-    pub fn set_process_mode(&mut self, mode: ProcessMode) -> Result<()> {
-        self.process_mode = mode;
-        self.save()
-    }
-
-    pub fn set_intercept_enter(&mut self, enabled: bool) -> Result<()> {
-        self.intercept_enter = enabled;
-        self.save()
-    }
-
-    pub fn set_enable_whitelist(&mut self, enabled: bool) -> Result<()> {
-        self.enable_whitelist = enabled;
-        self.save()
-    }
 }
 
-pub fn start_config_watcher(
-    config_reload_sender: Sender<()>,
-) -> Result<Debouncer<RecommendedWatcher, RecommendedCache>> {
-    let mut debouncer = new_debouncer(
-        Duration::from_millis(500),
-        None,
-        move |result: DebounceEventResult| {
-            if let Ok(events) = result {
-                for event in events {
-                    for path in &event.paths {
-                        if path.ends_with("config.yaml") {
-                            config_reload_sender.send(()).ok();
-                            break;
+pub struct ConfigManager {
+    config_path: PathBuf,
+    config: Config,
+    reload_receiver: Mutex<Receiver<()>>,
+    _watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
+}
+
+impl ConfigManager {
+    pub fn new(config_path: PathBuf) -> Result<Self> {
+        let config = Config::load(&config_path);
+
+        let (reload_sender, reload_receiver) = channel();
+        let current_dir = config_path
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .to_path_buf();
+
+        let watch_path = config_path.clone();
+        let mut watcher = new_debouncer(
+            Duration::from_millis(500),
+            None,
+            move |result: DebounceEventResult| {
+                if let Ok(events) = result {
+                    for event in events {
+                        for path in &event.paths {
+                            if path == &watch_path {
+                                reload_sender.send(()).ok();
+                                break;
+                            }
                         }
                     }
                 }
-            }
-        },
-    )?;
+            },
+        )?;
 
-    debouncer.watch(get_current_dir(), RecursiveMode::NonRecursive)?;
+        watcher.watch(&current_dir, RecursiveMode::NonRecursive)?;
 
-    Ok(debouncer)
+        let manager = Self {
+            config_path,
+            config,
+            reload_receiver: Mutex::new(reload_receiver),
+            _watcher: watcher,
+        };
+        manager.config.save(&manager.config_path).ok();
+        Ok(manager)
+    }
+
+    pub fn get_config(&self) -> &Config {
+        &self.config
+    }
+
+    pub fn try_reload(&mut self) -> bool {
+        let should_reload = if let Ok(receiver) = self.reload_receiver.lock() {
+            receiver.try_recv().is_ok()
+        } else {
+            false
+        };
+
+        if should_reload {
+            self.config = Config::load(&self.config_path);
+            self.config.save(&self.config_path).ok();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn set_current_character(&mut self, character: String) -> Result<()> {
+        self.config.current_character = character;
+        self.config.save(&self.config_path)
+    }
+
+    pub fn set_process_mode(&mut self, mode: ProcessMode) -> Result<()> {
+        self.config.process_mode = mode;
+        self.config.save(&self.config_path)
+    }
+
+    pub fn set_intercept_enter(&mut self, enabled: bool) -> Result<()> {
+        self.config.intercept_enter = enabled;
+        self.config.save(&self.config_path)
+    }
+
+    pub fn set_enable_whitelist(&mut self, enabled: bool) -> Result<()> {
+        self.config.enable_whitelist = enabled;
+        self.config.save(&self.config_path)
+    }
 }
