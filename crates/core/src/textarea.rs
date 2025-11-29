@@ -1,6 +1,6 @@
 use ab_glyph::{Font, FontVec, PxScale};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TextSegment {
     pub text: String,
     pub is_highlighted: bool,
@@ -77,22 +77,13 @@ fn wrap_text(
 
     for paragraph in text.lines() {
         if paragraph.is_empty() {
-            lines.push(vec![(
-                TextSegment {
-                    text: String::new(),
-                    is_highlighted: false,
-                },
-                0,
-            )]);
+            lines.push(vec![(TextSegment::default(), 0)]);
             continue;
         }
 
         let segments = parse_highlighted_text(paragraph);
         let mut current_line = Vec::new();
-        let mut current_segment = TextSegment {
-            text: String::new(),
-            is_highlighted: false,
-        };
+        let mut current_segment = TextSegment::default();
         let mut line_width = 0;
 
         for segment in segments {
@@ -106,7 +97,7 @@ fn wrap_text(
                     } else {
                         if !current_segment.text.is_empty() {
                             let seg_width = measure_text_width(&current_segment.text, font, scale);
-                            current_line.push((current_segment.clone(), seg_width));
+                            current_line.push((current_segment, seg_width));
                         }
                         current_segment = TextSegment {
                             text: ch.to_string(),
@@ -117,10 +108,10 @@ fn wrap_text(
                 } else {
                     if !current_segment.text.is_empty() {
                         let seg_width = measure_text_width(&current_segment.text, font, scale);
-                        current_line.push((current_segment.clone(), seg_width));
+                        current_line.push((current_segment, seg_width));
                     }
                     if !current_line.is_empty() {
-                        lines.push(current_line.clone());
+                        lines.push(current_line);
                     }
                     current_line = Vec::new();
                     current_segment = TextSegment {
@@ -142,13 +133,7 @@ fn wrap_text(
     }
 
     if lines.is_empty() {
-        lines.push(vec![(
-            TextSegment {
-                text: String::new(),
-                is_highlighted: false,
-            },
-            0,
-        )]);
+        lines.push(vec![(TextSegment::default(), 0)]);
     }
 
     lines
@@ -194,27 +179,24 @@ pub fn prepare_textarea(
         let lines = wrap_text(text, font, scale, region_width as i32);
 
         let line_height = get_line_height(font, scale);
-        let spaced_line_height = (line_height as f32 * (1.0 + line_spacing)).ceil() as i32;
+        let space_height = (line_height as f32 * line_spacing).ceil() as i32;
 
-        let mut max_width = 0;
-        for line in &lines {
-            let mut line_width = 0;
-            for (_, width) in line {
-                line_width += width;
-            }
-            max_width = max_width.max(line_width);
-        }
+        let max_width = lines
+            .iter()
+            .map(|line| line.iter().map(|(_, width)| width).sum::<i32>())
+            .max()
+            .unwrap_or(0);
 
         let total_height = if lines.is_empty() {
             line_height
         } else {
-            spaced_line_height * lines.len() as i32
+            line_height * lines.len() as i32 + (space_height * (lines.len() - 1) as i32)
         };
 
         if max_width <= region_width as i32 && total_height <= region_height as i32 {
             best_size = mid;
             best_lines = lines;
-            best_spaced_line_height = spaced_line_height;
+            best_spaced_line_height = line_height + space_height;
             best_block_height = total_height;
             lo = mid + 1;
         } else {
