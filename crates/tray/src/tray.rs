@@ -4,8 +4,6 @@ use anyhow::Result;
 use tray_icon::menu::{CheckMenuItem, Menu, MenuId, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, TrayIcon, TrayIconBuilder};
 
-use imagebox_core::CharacterData;
-
 use crate::config::{Config, ProcessMode};
 
 const ICON_DATA: &[u8] = include_bytes!("../assets/tray.raw");
@@ -86,27 +84,24 @@ impl TrayMenu {
         } else {
             self.character_id_map
                 .get(event_id)
-                .map(|name| ControlMessage::SwitchCharacter(name.clone()))
+                .map(|id| ControlMessage::SwitchCharacter(id.clone()))
         }
     }
 }
 
-pub fn create_tray_menu(
-    character_configs: &HashMap<String, CharacterData>,
-    config: &Config,
-) -> Result<TrayMenu> {
+pub fn create_tray_menu(characters: &HashMap<String, String>, config: &Config) -> Result<TrayMenu> {
     let menu = Menu::new();
 
     let mut character_items = HashMap::new();
     let mut character_id_map = HashMap::new();
 
-    let mut character_ids: Vec<_> = character_configs.keys().collect();
+    let mut character_ids: Vec<_> = characters.keys().collect();
     character_ids.sort_unstable();
 
     for character_id in character_ids {
-        if let Some(character_data) = character_configs.get(character_id) {
+        if let Some(character_name) = characters.get(character_id) {
             let is_current = character_id == &config.current_character;
-            let display_name = format!("{}({})", character_data.name, character_id);
+            let display_name = format!("{}({})", character_name, character_id);
             let item = CheckMenuItem::new(display_name, true, is_current, None);
             character_items.insert(character_id.clone(), item.clone());
             character_id_map.insert(item.id().clone(), character_id.clone());
@@ -159,8 +154,8 @@ pub fn create_tray_menu(
 
     let tray_icon = TrayIconBuilder::new()
         .with_menu(Box::new(menu))
-        .with_tooltip(match character_configs.get(&config.current_character) {
-            Some(CharacterData { name, .. }) => {
+        .with_tooltip(match characters.get(&config.current_character) {
+            Some(name) => {
                 format!("ImageBox - {}", name)
             }
             None => "ImageBox".to_string(),

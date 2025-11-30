@@ -4,11 +4,11 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
 
-use crate::data::{BLACK, CharacterData, DataConfig, Object};
+use crate::data::{BLACK, CharacterConfig, DataConfig, ObjectConfig};
 
 pub struct DataManager {
     data_dir: PathBuf,
-    pub character_configs: HashMap<String, CharacterData>,
+    character_configs: Vec<CharacterConfig>,
 }
 
 impl DataManager {
@@ -29,8 +29,18 @@ impl DataManager {
         })
     }
 
-    pub fn get_backgrounds(&self, character_id: &str) -> Option<Vec<PathBuf>> {
-        let character_config = self.character_configs.get(character_id)?;
+    pub fn get_character(&self, character_id: &str) -> Option<&CharacterConfig> {
+        self.character_configs.iter().find(|c| c.id == character_id)
+    }
+
+    pub fn get_characters(&self) -> &Vec<CharacterConfig> {
+        &self.character_configs
+    }
+
+    pub(crate) fn get_backgrounds(
+        &self,
+        character_config: &CharacterConfig,
+    ) -> Option<Vec<PathBuf>> {
         let background_dir = self.data_dir.join("backgrounds");
         let mut backgrounds = Vec::new();
 
@@ -48,15 +58,13 @@ impl DataManager {
         Some(backgrounds)
     }
 
-    pub fn get_character_images(
+    pub(crate) fn get_character_images(
         &self,
-        character_id: &str,
+        character_config: &CharacterConfig,
     ) -> Option<HashMap<String, Vec<PathBuf>>> {
-        let character_config = self.character_configs.get(character_id)?;
-
         let mut image_patterns = Vec::new();
         for object in &character_config.objects {
-            if let Object::Image { path, .. } = object {
+            if let ObjectConfig::Image { path, .. } = object {
                 image_patterns.extend(path.clone());
             }
         }
@@ -67,7 +75,7 @@ impl DataManager {
         let images_dir = self.data_dir.join("images");
         let mut character_imgs = HashMap::new();
         for pattern in &image_patterns {
-            let resolved_pattern = pattern.replace("%c", character_id);
+            let resolved_pattern = pattern.replace("%c", &character_config.id);
             let paths = collect_image_paths(&images_dir, &resolved_pattern);
             character_imgs.insert(pattern.clone(), paths);
         }
@@ -75,9 +83,8 @@ impl DataManager {
         Some(character_imgs)
     }
 
-    pub fn get_font_path(&self, character_id: &str) -> Option<PathBuf> {
-        let character_config = self.character_configs.get(character_id)?;
-        Some(self.data_dir.join("fonts").join(&character_config.font))
+    pub(crate) fn get_font_path(&self, character_config: &CharacterConfig) -> PathBuf {
+        self.data_dir.join("fonts").join(&character_config.font)
     }
 }
 
@@ -101,13 +108,13 @@ fn collect_image_paths(dir: &Path, pattern: &str) -> Vec<PathBuf> {
     path_list
 }
 
-pub fn load_data(content: &str) -> Result<HashMap<String, CharacterData>> {
+fn load_data(content: &str) -> Result<Vec<CharacterConfig>> {
     let config = serde_json::from_str::<DataConfig>(content).context("解析资源配置失败")?;
 
     let template = config.template;
-    let mut result = HashMap::new();
+    let mut result = Vec::new();
 
-    for (key, raw_character) in config.characters {
+    for (id, raw_character) in config.characters {
         let mut backgrounds = Vec::new();
         if let Some(template_bg) = &template.backgrounds {
             backgrounds.extend(template_bg.clone());
@@ -117,7 +124,7 @@ pub fn load_data(content: &str) -> Result<HashMap<String, CharacterData>> {
         }
 
         if backgrounds.is_empty() {
-            bail!("角色 '{}' 缺少 backgrounds 配置", key);
+            bail!("角色 '{}' 缺少 backgrounds 配置", id);
         }
 
         backgrounds.sort_unstable();
@@ -126,7 +133,7 @@ pub fn load_data(content: &str) -> Result<HashMap<String, CharacterData>> {
         let font = raw_character
             .font
             .or_else(|| template.font.clone())
-            .ok_or_else(|| anyhow!("角色 '{}' 缺少 font 配置", key))?;
+            .ok_or_else(|| anyhow!("角色 '{}' 缺少 font 配置", id))?;
 
         let primary_color = raw_character
             .primary_color
@@ -141,19 +148,17 @@ pub fn load_data(content: &str) -> Result<HashMap<String, CharacterData>> {
         let textarea = raw_character
             .textarea
             .or_else(|| template.textarea.clone())
-            .ok_or_else(|| anyhow!("角色 '{}' 缺少 textarea 配置", key))?;
+            .ok_or_else(|| anyhow!("角色 '{}' 缺少 textarea 配置", id))?;
 
-        result.insert(
-            key,
-            CharacterData {
-                name: raw_character.name,
-                backgrounds,
-                font,
-                primary_color,
-                objects,
-                textarea,
-            },
-        );
+        result.push(CharacterConfig {
+            id,
+            name: raw_character.name,
+            backgrounds,
+            font,
+            primary_color,
+            objects,
+            textarea,
+        });
     }
 
     Ok(result)

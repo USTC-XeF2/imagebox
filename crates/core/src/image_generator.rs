@@ -6,7 +6,7 @@ use anyhow::{Result, anyhow};
 use image::{ImageFormat, Rgba, RgbaImage, imageops};
 use imageproc::drawing::draw_text_mut;
 
-use crate::data::{HorizontalAlign, Object, TextAreaConfig, VerticalAlign};
+use crate::data::{HorizontalAlign, ObjectConfig, TextAreaConfig, VerticalAlign};
 use crate::data_manager::DataManager;
 use crate::resource_loader::{load_font, load_random_image};
 use crate::textarea::prepare_textarea;
@@ -159,29 +159,27 @@ pub fn generate_image(
     text: &str,
     max_size: usize,
 ) -> Result<RgbaImage> {
-    let character_data = data_manager
-        .character_configs
-        .get(character_id)
+    let character_config = data_manager
+        .get_character(character_id)
         .ok_or_else(|| anyhow!("角色 '{}' 不存在", character_id))?;
 
     let mut rng = rand::rng();
 
     let backgrounds = data_manager
-        .get_backgrounds(character_id)
+        .get_backgrounds(character_config)
         .ok_or_else(|| anyhow!("角色 '{}' 没有可用的背景图片", character_id))?;
     let backgrounds_vec: Vec<&PathBuf> = backgrounds.iter().collect();
     let mut image = load_random_image(&mut rng, &backgrounds_vec)
         .ok_or_else(|| anyhow!("无法加载角色 '{}' 的背景图片", character_id))?;
 
-    let font_path = data_manager.get_font_path(character_id).unwrap();
+    let font_path = data_manager.get_font_path(character_config);
     let font = load_font(&font_path)
         .ok_or_else(|| anyhow!("无法加载角色 '{}' 的字体文件", character_id))?;
 
-    let character_imgs = data_manager.get_character_images(character_id).unwrap();
-
-    for object in &character_data.objects {
+    let character_imgs = data_manager.get_character_images(character_config).unwrap();
+    for object in &character_config.objects {
         match object {
-            Object::Image { position, path } => {
+            ObjectConfig::Image { position, path } => {
                 let mut available_imgs = Vec::new();
 
                 for pattern in path {
@@ -197,7 +195,7 @@ pub fn generate_image(
                     imageops::overlay(&mut image, &img, position[0] as i64, position[1] as i64);
                 }
             }
-            Object::Text {
+            ObjectConfig::Text {
                 text,
                 position,
                 font_color,
@@ -205,7 +203,7 @@ pub fn generate_image(
             } => {
                 if !text.is_empty() {
                     let scale = PxScale::from(*font_size as f32);
-                    let color = font_color.to_rgba(character_data.primary_color);
+                    let color = font_color.to_rgba(character_config.primary_color);
 
                     draw_text_with_shadow(
                         &mut image,
@@ -226,8 +224,8 @@ pub fn generate_image(
         &mut image,
         text,
         &font,
-        &character_data.textarea,
-        character_data.primary_color,
+        &character_config.textarea,
+        character_config.primary_color,
     );
 
     Ok(if max_size > 0 {

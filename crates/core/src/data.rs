@@ -31,7 +31,7 @@ impl ColorInput {
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(tag = "type")]
 #[serde(rename_all = "lowercase")]
-pub enum Object {
+pub enum ObjectConfig {
     Text {
         text: String,
         position: [i32; 2],
@@ -81,12 +81,14 @@ pub struct TextAreaConfig {
     pub valign: VerticalAlign,
 }
 
-pub struct CharacterData {
+#[derive(Clone)]
+pub struct CharacterConfig {
+    pub id: String,
     pub name: String,
     pub backgrounds: Vec<String>,
     pub font: String,
     pub primary_color: Rgba<u8>,
-    pub objects: Vec<Object>,
+    pub objects: Vec<ObjectConfig>,
     pub textarea: TextAreaConfig,
 }
 
@@ -99,13 +101,13 @@ pub struct Template {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub primary_color: Option<ColorInput>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub objects: Option<Vec<Object>>,
+    pub objects: Option<Vec<ObjectConfig>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub textarea: Option<TextAreaConfig>,
 }
 
 #[derive(Deserialize, Serialize)]
-pub struct CharacterDataRaw {
+pub struct CharacterConfigRaw {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub backgrounds: Option<Vec<String>>,
@@ -114,7 +116,7 @@ pub struct CharacterDataRaw {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub primary_color: Option<ColorInput>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub objects: Option<Vec<Object>>,
+    pub objects: Option<Vec<ObjectConfig>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub textarea: Option<TextAreaConfig>,
 }
@@ -122,5 +124,5 @@ pub struct CharacterDataRaw {
 #[derive(Deserialize, Serialize)]
 pub struct DataConfig {
     pub template: Template,
-    pub characters: HashMap<String, CharacterDataRaw>,
+    pub characters: HashMap<String, CharacterConfigRaw>,
 }

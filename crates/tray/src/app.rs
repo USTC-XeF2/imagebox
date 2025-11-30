@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::mpsc::{Receiver, channel};
 use std::sync::{Arc, Mutex, RwLock};
@@ -40,10 +41,10 @@ impl App {
         let data_config_path = work_dir.join("data/data.json");
         let data_manager = DataManager::new(&data_config_path).map_err(show_resource_error)?;
         let characters = data_manager
-            .character_configs
-            .keys()
-            .cloned()
-            .collect::<Vec<String>>();
+            .get_characters()
+            .iter()
+            .map(|c| (c.id.clone(), c.name.clone()))
+            .collect::<HashMap<_, _>>();
 
         let config_path = work_dir.join("config.yaml");
         let is_first_launch = !config_path.exists();
@@ -57,15 +58,15 @@ impl App {
                 .show();
         }
 
-        if !characters.contains(&config_manager.get_config().current_character) {
+        if !characters.contains_key(&config_manager.get_config().current_character) {
             config_manager
-                .set_current_character(characters[0].clone())
+                .set_current_character(characters.keys().next().unwrap().clone())
                 .ok();
         }
 
         let config = config_manager.get_config();
 
-        let tray_menu = create_tray_menu(&data_manager.character_configs, config)?;
+        let tray_menu = create_tray_menu(&characters, config)?;
 
         let hotkey_manager = HotkeyManager::new(config)?;
 
@@ -106,7 +107,7 @@ impl App {
         let current_character = new_config.current_character.clone();
         drop(config_manager);
 
-        if let Some(character_data) = self.data_manager.character_configs.get(&current_character) {
+        if let Some(character_data) = self.data_manager.get_character(&current_character) {
             let character_name = character_data.name.clone();
             self.tray_menu.update_tooltip(&character_name);
             self.tray_menu.set_selected_character(&current_character);
@@ -136,7 +137,7 @@ impl App {
     fn handle_message(&mut self, msg: ControlMessage, event_loop: &ActiveEventLoop) {
         match msg {
             ControlMessage::SwitchCharacter(id) => {
-                if let Some(character_data) = self.data_manager.character_configs.get(&id) {
+                if let Some(character_data) = self.data_manager.get_character(&id) {
                     self.tray_menu.update_tooltip(&character_data.name);
                     self.tray_menu.set_selected_character(&id);
 
