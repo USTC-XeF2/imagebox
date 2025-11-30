@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use ab_glyph::{FontVec, PxScale};
 use anyhow::{Result, anyhow};
-use image::{Rgba, RgbaImage, imageops};
+use image::{ImageFormat, Rgba, RgbaImage, imageops};
 use imageproc::drawing::draw_text_mut;
 
 use crate::data::{HorizontalAlign, Object, TextAreaConfig, VerticalAlign};
@@ -132,7 +132,7 @@ fn compress_image(img: RgbaImage, target_size_bytes: usize) -> RgbaImage {
 
     let mut buf = Vec::new();
     if img
-        .write_to(&mut Cursor::new(&mut buf), image::ImageFormat::Png)
+        .write_to(&mut Cursor::new(&mut buf), ImageFormat::Png)
         .is_err()
     {
         return img;
@@ -231,7 +231,12 @@ pub fn generate_image(
     );
 
     Ok(if max_size > 0 {
-        compress_image(image, max_size * 1024)
+        let max_size = if max_size > usize::MAX / 1024 {
+            usize::MAX
+        } else {
+            max_size * 1024
+        };
+        compress_image(image, max_size)
     } else {
         image
     })
