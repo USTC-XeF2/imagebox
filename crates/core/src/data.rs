@@ -40,7 +40,10 @@ pub enum ObjectConfig {
     },
     Image {
         position: [i32; 2],
-        path: Vec<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        path: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
     },
 }
 

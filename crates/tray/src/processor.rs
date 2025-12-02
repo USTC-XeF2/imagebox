@@ -44,14 +44,10 @@ pub fn process_image(
         return;
     }
 
-    let current_character = config.current_character.clone();
-    let max_image_size = config.max_image_size;
-    let max_chars = config.max_chars;
-
     if mode == ProcessMode::Send
         && enable_max_chars
-        && max_chars > 0
-        && copied_content.chars().count() > max_chars
+        && config.max_chars > 0
+        && copied_content.chars().count() > config.max_chars
     {
         enigo.key(EnigoKey::Return, Direction::Click).ok();
         return;
@@ -60,9 +56,10 @@ pub fn process_image(
     let image = {
         match generate_image(
             data_manager,
-            &current_character,
+            &config.current_character,
             &copied_content,
-            max_image_size,
+            config.max_image_size,
+            None,
         ) {
             Ok(img) => img,
             Err(_) => {

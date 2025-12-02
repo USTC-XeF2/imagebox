@@ -1,10 +1,9 @@
-use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
 
-use crate::data::{BLACK, CharacterConfig, DataConfig, ObjectConfig};
+use crate::data::{BLACK, CharacterConfig, DataConfig};
 
 pub struct DataManager {
     data_dir: PathBuf,
@@ -58,29 +57,23 @@ impl DataManager {
         Some(backgrounds)
     }
 
-    pub(crate) fn get_character_images(
+    pub(crate) fn get_images(
         &self,
         character_config: &CharacterConfig,
-    ) -> Option<HashMap<String, Vec<PathBuf>>> {
-        let mut image_patterns = Vec::new();
-        for object in &character_config.objects {
-            if let ObjectConfig::Image { path, .. } = object {
-                image_patterns.extend(path.clone());
-            }
-        }
-
-        image_patterns.sort_unstable();
-        image_patterns.dedup();
-
+        paths: &[String],
+    ) -> Vec<PathBuf> {
         let images_dir = self.data_dir.join("images");
-        let mut character_imgs = HashMap::new();
-        for pattern in &image_patterns {
+        let mut result = Vec::new();
+
+        for pattern in paths {
             let resolved_pattern = pattern.replace("%c", &character_config.id);
-            let paths = collect_image_paths(&images_dir, &resolved_pattern);
-            character_imgs.insert(pattern.clone(), paths);
+            let image_paths = collect_image_paths(&images_dir, &resolved_pattern);
+            result.extend(image_paths);
         }
 
-        Some(character_imgs)
+        result.sort_unstable();
+        result.dedup();
+        result
     }
 
     pub(crate) fn get_font_path(&self, character_config: &CharacterConfig) -> PathBuf {

@@ -16,14 +16,14 @@ pub fn load_image(path: &Path) -> Option<RgbaImage> {
     }
 }
 
-pub fn load_random_image<T: Rng>(rng: &mut T, paths: &[&PathBuf]) -> Option<RgbaImage> {
+pub fn load_random_image<T: Rng>(rng: &mut T, paths: &[PathBuf]) -> Option<RgbaImage> {
     if paths.is_empty() {
         return None;
     }
 
     for _ in 0..3 {
         let idx = rng.random_range(0..paths.len());
-        if let Some(img) = load_image(paths[idx]) {
+        if let Some(img) = load_image(&paths[idx]) {
             return Some(img);
         }
     }

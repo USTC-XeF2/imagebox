@@ -1,5 +1,5 @@
+use std::collections::HashMap;
 use std::io::Cursor;
-use std::path::PathBuf;
 
 use ab_glyph::{FontVec, PxScale};
 use anyhow::{Result, anyhow};
@@ -158,6 +158,7 @@ pub fn generate_image(
     character_id: &str,
     text: &str,
     max_size: usize,
+    images: Option<&HashMap<String, Vec<String>>>,
 ) -> Result<RgbaImage> {
     let character_config = data_manager
         .get_character(character_id)
@@ -168,29 +169,28 @@ pub fn generate_image(
     let backgrounds = data_manager
         .get_backgrounds(character_config)
         .ok_or_else(|| anyhow!("角色 '{}' 没有可用的背景图片", character_id))?;
-    let backgrounds_vec: Vec<&PathBuf> = backgrounds.iter().collect();
-    let mut image = load_random_image(&mut rng, &backgrounds_vec)
+    let mut image = load_random_image(&mut rng, &backgrounds)
         .ok_or_else(|| anyhow!("无法加载角色 '{}' 的背景图片", character_id))?;
 
     let font_path = data_manager.get_font_path(character_config);
     let font = load_font(&font_path)
         .ok_or_else(|| anyhow!("无法加载角色 '{}' 的字体文件", character_id))?;
 
-    let character_imgs = data_manager.get_character_images(character_config).unwrap();
     for object in &character_config.objects {
         match object {
-            ObjectConfig::Image { position, path } => {
-                let mut available_imgs = Vec::new();
+            ObjectConfig::Image { position, path, id } => {
+                let paths = if let Some(img_map) = images
+                    && let Some(img_id) = id
+                    && let Some(img_paths) = img_map.get(img_id)
+                {
+                    img_paths
+                } else {
+                    path.as_ref().ok_or_else(|| {
+                        anyhow!("图片对象必须指定 path 或者通过 id 在 images 参数中提供路径")
+                    })?
+                };
 
-                for pattern in path {
-                    if let Some(imgs) = character_imgs.get(pattern) {
-                        available_imgs.extend(imgs);
-                    }
-                }
-
-                available_imgs.sort_unstable();
-                available_imgs.dedup();
-
+                let available_imgs = data_manager.get_images(character_config, paths);
                 if let Some(img) = load_random_image(&mut rng, &available_imgs) {
                     imageops::overlay(&mut image, &img, position[0] as i64, position[1] as i64);
                 }
