@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::Cursor;
 
-use ab_glyph::{FontVec, PxScale};
+use ab_glyph::FontVec;
 use anyhow::{Result, anyhow};
 use image::{ImageFormat, Rgba, RgbaImage, imageops};
 use imageproc::drawing::draw_text_mut;
@@ -9,7 +9,7 @@ use imageproc::drawing::draw_text_mut;
 use crate::data::{HorizontalAlign, ObjectConfig, TextAreaConfig, VerticalAlign};
 use crate::data_manager::DataManager;
 use crate::resource_loader::{load_font, load_random_image};
-use crate::textarea::prepare_textarea;
+use crate::textarea::{get_scaled_font, prepare_textarea};
 
 // 压缩保守系数
 const CONSERVATIVE_FACTOR: f32 = 0.9;
@@ -21,14 +21,11 @@ fn draw_text_with_shadow(
     x: i32,
     y: i32,
     font: &FontVec,
-    scale: PxScale,
+    font_size: u32,
     color: Rgba<u8>,
     shadow_offset: (i32, i32),
 ) {
-    let scale = PxScale {
-        x: scale.x * 1.3,
-        y: scale.y * 1.3,
-    };
+    let scale = get_scaled_font(font, font_size).scale.y;
 
     // 绘制阴影
     let shadow_color = Rgba([0u8, 0u8, 0u8, 255u8]);
@@ -70,13 +67,11 @@ fn draw_textarea(
         config.line_spacing,
     );
 
-    let scale = PxScale::from(prepared.font_size as f32);
-
     // 垂直对齐
     let y_start = match &config.valign {
         VerticalAlign::Top => y1,
-        VerticalAlign::Middle => y1 + (config.size[1] as i32 - prepared.block_height) / 2,
-        VerticalAlign::Bottom => y2 - prepared.block_height,
+        VerticalAlign::Middle => y1 + (config.size[1] as i32 - prepared.block_height as i32) / 2,
+        VerticalAlign::Bottom => y2 - prepared.block_height as i32,
     };
 
     // 绘制每一行
@@ -84,7 +79,7 @@ fn draw_textarea(
     for line in &prepared.lines {
         let mut line_width = 0;
         for (_, width) in line {
-            line_width += width;
+            line_width += *width as i32;
         }
 
         // 水平对齐
@@ -111,16 +106,16 @@ fn draw_textarea(
                     x,
                     y,
                     font,
-                    scale,
+                    prepared.font_size,
                     color,
                     config.shadow_offset,
                 );
 
-                x += segment_width;
+                x += *segment_width as i32;
             }
         }
 
-        y += prepared.spaced_line_height;
+        y += prepared.spaced_line_height as i32;
         if y >= y2 {
             break;
         }
@@ -202,7 +197,6 @@ pub fn generate_image(
                 font_size,
             } => {
                 if !text.is_empty() {
-                    let scale = PxScale::from(*font_size as f32);
                     let color = font_color.to_rgba(character_config.primary_color);
 
                     draw_text_with_shadow(
@@ -211,7 +205,7 @@ pub fn generate_image(
                         position[0],
                         position[1],
                         &font,
-                        scale,
+                        *font_size,
                         color,
                         (2, 2),
                     );

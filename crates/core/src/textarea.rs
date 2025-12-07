@@ -1,4 +1,4 @@
-use ab_glyph::{Font, FontVec, PxScale};
+use ab_glyph::{Font, FontVec, PxScale, PxScaleFont, ScaleFont};
 
 #[derive(Debug, Clone, Default)]
 pub struct TextSegment {
@@ -47,32 +47,30 @@ fn parse_highlighted_text(text: &str) -> Vec<TextSegment> {
     segments
 }
 
-fn measure_text_width(text: &str, font: &FontVec, scale: PxScale) -> i32 {
-    let mut width: f32 = 0.0;
+pub fn get_scaled_font(font: &FontVec, font_size: u32) -> PxScaleFont<&FontVec> {
+    let height_unscaled = font.height_unscaled();
+    let units_per_em = font.units_per_em().unwrap_or(1000.0);
 
-    for c in text.chars() {
-        let glyph_id = font.glyph_id(c);
-        width +=
-            font.h_advance_unscaled(glyph_id) * scale.x / font.units_per_em().unwrap_or(1000.0);
-    }
+    let corr_font_size = font_size as f32 * height_unscaled / units_per_em;
 
-    width.ceil() as i32
+    font.as_scaled(PxScale {
+        x: corr_font_size,
+        y: corr_font_size,
+    })
 }
 
-fn get_line_height(font: &FontVec, scale: PxScale) -> i32 {
-    let ascent = font.ascent_unscaled();
-    let descent = font.descent_unscaled();
-    let line_gap = font.line_gap_unscaled();
-
-    ((ascent - descent + line_gap) * scale.y / font.units_per_em().unwrap_or(1000.0)).ceil() as i32
+fn measure_text_width(text: &str, scaled_font: PxScaleFont<&FontVec>) -> u32 {
+    text.chars().fold(0, |acc, c| {
+        let glyph_id = scaled_font.glyph_id(c);
+        acc + scaled_font.h_advance(glyph_id).ceil() as u32
+    })
 }
 
 fn wrap_text(
     text: &str,
-    font: &FontVec,
-    scale: PxScale,
-    max_width: i32,
-) -> Vec<Vec<(TextSegment, i32)>> {
+    scaled_font: PxScaleFont<&FontVec>,
+    max_width: u32,
+) -> Vec<Vec<(TextSegment, u32)>> {
     let mut lines = Vec::new();
 
     for paragraph in text.lines() {
@@ -89,14 +87,14 @@ fn wrap_text(
         for segment in segments {
             for ch in segment.text.chars() {
                 let test_char = ch.to_string();
-                let char_width = measure_text_width(&test_char, font, scale);
+                let char_width = measure_text_width(&test_char, scaled_font);
 
                 if line_width + char_width <= max_width {
                     if current_segment.is_highlighted == segment.is_highlighted {
                         current_segment.text.push(ch);
                     } else {
                         if !current_segment.text.is_empty() {
-                            let seg_width = measure_text_width(&current_segment.text, font, scale);
+                            let seg_width = measure_text_width(&current_segment.text, scaled_font);
                             current_line.push((current_segment, seg_width));
                         }
                         current_segment = TextSegment {
@@ -107,7 +105,7 @@ fn wrap_text(
                     line_width += char_width;
                 } else {
                     if !current_segment.text.is_empty() {
-                        let seg_width = measure_text_width(&current_segment.text, font, scale);
+                        let seg_width = measure_text_width(&current_segment.text, scaled_font);
                         current_line.push((current_segment, seg_width));
                     }
                     if !current_line.is_empty() {
@@ -124,7 +122,7 @@ fn wrap_text(
         }
 
         if !current_segment.text.is_empty() {
-            let seg_width = measure_text_width(&current_segment.text, font, scale);
+            let seg_width = measure_text_width(&current_segment.text, scaled_font);
             current_line.push((current_segment, seg_width));
         }
         if !current_line.is_empty() {
@@ -141,9 +139,9 @@ fn wrap_text(
 
 pub struct PreparedTextarea {
     pub font_size: u32,
-    pub lines: Vec<Vec<(TextSegment, i32)>>,
-    pub spaced_line_height: i32,
-    pub block_height: i32,
+    pub lines: Vec<Vec<(TextSegment, u32)>>,
+    pub spaced_line_height: u32,
+    pub block_height: u32,
 }
 
 pub fn prepare_textarea(
@@ -160,9 +158,9 @@ pub fn prepare_textarea(
         region_height
     };
 
-    let mut lo = 1u32;
+    let mut lo = 1;
     let mut hi = max_size;
-    let mut best_size = 1u32;
+    let mut best_size = 1;
     let mut best_lines = vec![vec![(
         TextSegment {
             text: text.to_string(),
@@ -170,33 +168,30 @@ pub fn prepare_textarea(
         },
         0,
     )]];
-    let mut best_spaced_line_height = 1i32;
-    let mut best_block_height = 1i32;
+    let mut best_spaced_line_height = 1;
+    let mut best_block_height = 1;
 
     while lo <= hi {
         let mid = u32::midpoint(lo, hi);
-        let scale = PxScale::from(mid as f32);
-        let lines = wrap_text(text, font, scale, region_width as i32);
+        let scaled_font = get_scaled_font(font, mid);
+        let lines = wrap_text(text, scaled_font, region_width);
 
-        let line_height = get_line_height(font, scale);
-        let space_height = (line_height as f32 * line_spacing).ceil() as i32;
+        let line_height = scaled_font.height();
+        let spaced_line_height = (line_height * (1.0 + line_spacing)).ceil() as u32;
 
         let max_width = lines
             .iter()
-            .map(|line| line.iter().map(|(_, width)| width).sum::<i32>())
+            .map(|line| line.iter().map(|(_, width)| width).sum())
             .max()
             .unwrap_or(0);
 
-        let total_height = if lines.is_empty() {
-            line_height
-        } else {
-            line_height * lines.len() as i32 + (space_height * (lines.len() - 1) as i32)
-        };
+        let total_height =
+            spaced_line_height * lines.len() as u32 - (line_height * line_spacing).ceil() as u32;
 
-        if max_width <= region_width as i32 && total_height <= region_height as i32 {
+        if max_width <= region_width && total_height <= region_height {
             best_size = mid;
             best_lines = lines;
-            best_spaced_line_height = line_height + space_height;
+            best_spaced_line_height = spaced_line_height;
             best_block_height = total_height;
             lo = mid + 1;
         } else {
