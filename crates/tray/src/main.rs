@@ -11,9 +11,8 @@ use std::path::PathBuf;
 use anyhow::Result;
 use single_instance::SingleInstance;
 use winit::event_loop::EventLoop;
-use winit::platform::run_on_demand::EventLoopExtRunOnDemand;
 
-use app::App;
+use app::{App, UserEvent};
 
 const APP_NAME: &str = "ImageBox_Tray_001";
 
@@ -37,10 +36,10 @@ fn main() -> Result<()> {
     if instance.is_single() {
         let current_dir = get_current_dir();
 
-        let mut app = App::new(&current_dir)?;
+        let event_loop = EventLoop::<UserEvent>::with_user_event().build().unwrap();
+        let mut app = App::new(&current_dir, &event_loop)?;
 
-        let mut event_loop = EventLoop::new()?;
-        event_loop.run_app_on_demand(&mut app)?;
+        event_loop.run_app(&mut app)?;
     }
 
     Ok(())

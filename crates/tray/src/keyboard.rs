@@ -1,9 +1,9 @@
 use std::sync::atomic::{AtomicU8, Ordering};
-use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
 use active_win_pos_rs::get_active_window;
+use anyhow::Result;
 use global_hotkey::GlobalHotKeyManager;
 use global_hotkey::hotkey::HotKey;
 use rdev::{Event, EventType, Key, grab};
@@ -43,7 +43,7 @@ pub struct HotkeyManager {
 }
 
 impl HotkeyManager {
-    pub fn new(config: &Config) -> global_hotkey::Result<Self> {
+    pub fn new(config: &Config) -> Result<Self> {
         let manager = GlobalHotKeyManager::new()?;
         let toggle_hotkey = config.toggle_hotkey;
         let generate_hotkey = config.generate_hotkey;
@@ -70,26 +70,32 @@ impl HotkeyManager {
     }
 }
 
-pub fn start_keyboard_listener(
+pub fn start_keyboard_listener<F>(
     config_manager: Arc<RwLock<ConfigManager>>,
     is_processing: Arc<Mutex<bool>>,
-    enter_key_sender: Sender<()>,
-) -> thread::JoinHandle<()> {
+    on_enter: F,
+) -> thread::JoinHandle<()>
+where
+    F: Fn() + Send + 'static,
+{
     thread::spawn(move || {
-        if let Err(error) = grab(move |event| {
-            handle_enter_key(event, &is_processing, &config_manager, &enter_key_sender)
-        }) {
+        if let Err(error) =
+            grab(move |event| handle_enter_key(event, &is_processing, &config_manager, &on_enter))
+        {
             eprintln!("Error listening for events: {:?}", error);
         }
     })
 }
 
-fn handle_enter_key(
+fn handle_enter_key<F>(
     event: Event,
-    is_processing: &Arc<Mutex<bool>>,
-    config_manager: &Arc<RwLock<ConfigManager>>,
-    enter_key_sender: &Sender<()>,
-) -> Option<Event> {
+    is_processing: &Mutex<bool>,
+    config_manager: &RwLock<ConfigManager>,
+    on_enter: &F,
+) -> Option<Event>
+where
+    F: Fn(),
+{
     match event.event_type {
         EventType::KeyPress(Key::ShiftLeft | Key::ShiftRight) => {
             set_modifier_key(SHIFT_MASK, true);
@@ -130,7 +136,7 @@ fn handle_enter_key(
             }
             drop(processing);
 
-            let _ = enter_key_sender.send(());
+            on_enter();
             return None;
         }
         _ => {}

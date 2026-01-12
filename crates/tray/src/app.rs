@@ -1,34 +1,40 @@
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::mpsc::{Receiver, channel};
 use std::sync::{Arc, Mutex, RwLock};
 use std::thread;
 
 use anyhow::{Error, Result};
 use global_hotkey::{GlobalHotKeyEvent, HotKeyState};
 use rfd::{MessageDialog, MessageLevel};
-use tray_icon::menu::MenuEvent;
+use tray_icon::menu::{MenuEvent, MenuId};
 use winit::application::ApplicationHandler;
-use winit::event_loop::{ActiveEventLoop, ControlFlow};
+use winit::event::WindowEvent;
+use winit::event_loop::{ActiveEventLoop, EventLoop};
 
 use imagebox_core::DataManager;
+use winit::window::WindowId;
 
 use crate::config::{ConfigManager, ProcessMode};
 use crate::keyboard::{HotkeyManager, check_whitelist, start_keyboard_listener};
 use crate::processor::process_image;
 use crate::tray::{ControlMessage, TrayMenu, create_tray_menu};
 
+pub enum UserEvent {
+    TrayMenuEvent(MenuId),
+    HotkeyEvent(GlobalHotKeyEvent),
+    EnterKeyPressed,
+}
+
 pub struct App {
     data_manager: Arc<DataManager>,
     is_processing: Arc<Mutex<bool>>,
-    enter_key_receiver: Receiver<()>,
     tray_menu: TrayMenu,
     hotkey_manager: HotkeyManager,
     config_manager: Arc<RwLock<ConfigManager>>,
 }
 
 impl App {
-    pub fn new(work_dir: &Path) -> Result<Self> {
+    pub fn new(work_dir: &Path, event_loop: &EventLoop<UserEvent>) -> Result<Self> {
         let show_resource_error = |e: Error| {
             MessageDialog::new()
                 .set_level(MessageLevel::Error)
@@ -72,20 +78,28 @@ impl App {
 
         let config_manager = Arc::new(RwLock::new(config_manager));
         let is_processing = Arc::new(Mutex::new(false));
-
-        let (enter_key_sender, enter_key_receiver) = channel();
-        start_keyboard_listener(
-            config_manager.clone(),
-            is_processing.clone(),
-            enter_key_sender,
-        );
-
         let data_manager = Arc::new(data_manager);
+
+        let proxy_tray = event_loop.create_proxy();
+        MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+            proxy_tray
+                .send_event(UserEvent::TrayMenuEvent(event.id.clone()))
+                .ok();
+        }));
+
+        let proxy_hotkey = event_loop.create_proxy();
+        GlobalHotKeyEvent::set_event_handler(Some(move |event| {
+            proxy_hotkey.send_event(UserEvent::HotkeyEvent(event)).ok();
+        }));
+
+        let proxy_keyboard = event_loop.create_proxy();
+        start_keyboard_listener(config_manager.clone(), is_processing.clone(), move || {
+            proxy_keyboard.send_event(UserEvent::EnterKeyPressed).ok();
+        });
 
         Ok(Self {
             data_manager,
             is_processing,
-            enter_key_receiver,
             tray_menu,
             hotkey_manager,
             config_manager,
@@ -114,13 +128,13 @@ impl App {
         }
     }
 
-    fn handle_hotkey_event(&mut self, event: GlobalHotKeyEvent, event_loop: &ActiveEventLoop) {
+    fn handle_hotkey_event(&mut self, event: GlobalHotKeyEvent) {
         if event.state == HotKeyState::Released {
             return;
         }
 
         if event.id == self.hotkey_manager.toggle_hotkey.id() {
-            self.handle_message(ControlMessage::ToggleIntercept, event_loop);
+            self.handle_message(ControlMessage::ToggleIntercept);
         } else if event.id == self.hotkey_manager.generate_hotkey.id() {
             let (should_process, process_mode) = {
                 let config_manager = self.config_manager.read().unwrap();
@@ -134,7 +148,7 @@ impl App {
         }
     }
 
-    fn handle_message(&mut self, msg: ControlMessage, event_loop: &ActiveEventLoop) {
+    fn handle_message(&mut self, msg: ControlMessage) -> bool {
         match msg {
             ControlMessage::SwitchCharacter(id) => {
                 if let Some(character_data) = self.data_manager.get_character(&id) {
@@ -183,9 +197,10 @@ impl App {
                 open::that("https://github.com/USTC-XeF2/imagebox").ok();
             }
             ControlMessage::Quit => {
-                event_loop.exit();
+                return true;
             }
         }
+        false
     }
 
     fn process_image_in_thread(&self, process_mode: ProcessMode, enable_max_chars: bool) {
@@ -211,41 +226,36 @@ impl App {
     }
 }
 
-impl ApplicationHandler for App {
+impl ApplicationHandler<UserEvent> for App {
     fn resumed(&mut self, _event_loop: &ActiveEventLoop) {}
+
+    fn user_event(&mut self, event_loop: &ActiveEventLoop, user_event: UserEvent) {
+        match user_event {
+            UserEvent::TrayMenuEvent(menu_id) => {
+                if let Some(msg) = self.tray_menu.event_to_message(&menu_id)
+                    && self.handle_message(msg)
+                {
+                    event_loop.exit();
+                }
+            }
+            UserEvent::HotkeyEvent(hotkey_event) => self.handle_hotkey_event(hotkey_event),
+            UserEvent::EnterKeyPressed => {
+                self.process_image_in_thread(ProcessMode::Send, true);
+            }
+        }
+    }
 
     fn window_event(
         &mut self,
-        event_loop: &ActiveEventLoop,
-        _window_id: winit::window::WindowId,
-        _event: winit::event::WindowEvent,
+        _event_loop: &ActiveEventLoop,
+        _window_id: WindowId,
+        _event: WindowEvent,
     ) {
-        event_loop.set_control_flow(ControlFlow::Poll);
     }
 
-    fn new_events(&mut self, event_loop: &ActiveEventLoop, _cause: winit::event::StartCause) {
-        event_loop.set_control_flow(ControlFlow::Poll);
-
+    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
         if self.config_manager.write().unwrap().try_reload() {
             self.handle_reload_config();
         }
-
-        let tray_event_receiver = MenuEvent::receiver();
-        if let Ok(event) = tray_event_receiver.try_recv()
-            && let Some(msg) = self.tray_menu.event_to_message(&event.id)
-        {
-            self.handle_message(msg, event_loop);
-        }
-
-        let hotkey_receiver = GlobalHotKeyEvent::receiver();
-        if let Ok(event) = hotkey_receiver.try_recv() {
-            self.handle_hotkey_event(event, event_loop);
-        }
-
-        if self.enter_key_receiver.try_recv().is_ok() {
-            self.process_image_in_thread(ProcessMode::Send, true);
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(10));
     }
 }

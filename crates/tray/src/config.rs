@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Mutex;
-use std::sync::mpsc::{Receiver, channel};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use anyhow::Result;
@@ -112,7 +112,7 @@ impl Config {
 pub struct ConfigManager {
     config_path: PathBuf,
     config: Config,
-    reload_receiver: Mutex<Receiver<()>>,
+    needs_reload: Arc<AtomicBool>,
     _watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
 }
 
@@ -120,11 +120,10 @@ impl ConfigManager {
     pub fn new(config_path: PathBuf) -> Result<Self> {
         let config = Config::load(&config_path);
 
-        let (reload_sender, reload_receiver) = channel();
-        let current_dir = config_path
-            .parent()
-            .unwrap_or_else(|| std::path::Path::new("."))
-            .to_path_buf();
+        let needs_reload = Arc::new(AtomicBool::new(false));
+        let needs_reload_clone = needs_reload.clone();
+
+        let current_dir = config_path.parent().unwrap().to_path_buf();
 
         let watch_path = config_path.clone();
         let mut watcher = new_debouncer(
@@ -135,7 +134,7 @@ impl ConfigManager {
                     for event in events {
                         for path in &event.paths {
                             if path == &watch_path {
-                                reload_sender.send(()).ok();
+                                needs_reload_clone.store(true, Ordering::Relaxed);
                                 break;
                             }
                         }
@@ -149,7 +148,7 @@ impl ConfigManager {
         let manager = Self {
             config_path,
             config,
-            reload_receiver: Mutex::new(reload_receiver),
+            needs_reload,
             _watcher: watcher,
         };
         manager.config.save(&manager.config_path).ok();
@@ -161,13 +160,7 @@ impl ConfigManager {
     }
 
     pub fn try_reload(&mut self) -> bool {
-        let should_reload = if let Ok(receiver) = self.reload_receiver.lock() {
-            receiver.try_recv().is_ok()
-        } else {
-            false
-        };
-
-        if should_reload {
+        if self.needs_reload.swap(false, Ordering::Relaxed) {
             self.config = Config::load(&self.config_path);
             self.config.save(&self.config_path).ok();
             true
