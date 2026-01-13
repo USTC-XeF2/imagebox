@@ -14,12 +14,13 @@ use winit::event_loop::{ActiveEventLoop, EventLoop};
 use imagebox_core::DataManager;
 use winit::window::WindowId;
 
-use crate::config::{ConfigManager, ProcessMode};
+use crate::config::{Config, ConfigManager, ProcessMode};
 use crate::keyboard::{HotkeyManager, check_whitelist, start_keyboard_listener};
 use crate::processor::process_image;
 use crate::tray::{ControlMessage, TrayMenu, create_tray_menu};
 
 pub enum UserEvent {
+    ConfigReloaded,
     TrayMenuEvent(MenuId),
     HotkeyEvent(GlobalHotKeyEvent),
     EnterKeyPressed,
@@ -55,7 +56,10 @@ impl App {
         let config_path = work_dir.join("config.toml");
         let is_first_launch = !config_path.exists();
 
-        let mut config_manager = ConfigManager::new(config_path)?;
+        let proxy_config = event_loop.create_proxy();
+        let mut config_manager = ConfigManager::new(config_path, move || {
+            proxy_config.send_event(UserEvent::ConfigReloaded).ok();
+        })?;
 
         if is_first_launch {
             MessageDialog::new()
@@ -106,7 +110,7 @@ impl App {
         })
     }
 
-    fn handle_reload_config(&mut self) {
+    fn handle_reload_config(&mut self, old_config: &Config) {
         let config_manager = self.config_manager.read().unwrap();
         let new_config = config_manager.get_config();
 
@@ -125,6 +129,12 @@ impl App {
             let character_name = character_data.name.clone();
             self.tray_menu.update_tooltip(&character_name);
             self.tray_menu.set_selected_character(&current_character);
+        } else {
+            self.config_manager
+                .write()
+                .unwrap()
+                .set_current_character(old_config.current_character.clone())
+                .ok();
         }
     }
 
@@ -231,6 +241,12 @@ impl ApplicationHandler<UserEvent> for App {
 
     fn user_event(&mut self, event_loop: &ActiveEventLoop, user_event: UserEvent) {
         match user_event {
+            UserEvent::ConfigReloaded => {
+                let old_config = self.config_manager.write().unwrap().try_reload();
+                if let Some(old) = old_config {
+                    self.handle_reload_config(&old);
+                }
+            }
             UserEvent::TrayMenuEvent(menu_id) => {
                 if let Some(msg) = self.tray_menu.event_to_message(&menu_id)
                     && self.handle_message(msg)
@@ -251,11 +267,5 @@ impl ApplicationHandler<UserEvent> for App {
         _window_id: WindowId,
         _event: WindowEvent,
     ) {
-    }
-
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        if self.config_manager.write().unwrap().try_reload() {
-            self.handle_reload_config();
-        }
     }
 }

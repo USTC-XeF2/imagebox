@@ -1,5 +1,6 @@
 use std::fs;
-use std::path::PathBuf;
+use std::mem;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
@@ -87,24 +88,19 @@ impl Default for Config {
 }
 
 impl Config {
-    fn load(config_path: &PathBuf) -> Self {
-        if config_path.exists()
-            && let Ok(content) = fs::read_to_string(config_path)
-            && let Ok(config) = toml::from_str(&content)
-        {
-            config
-        } else {
-            Config::default()
-        }
+    fn load(path: &Path) -> Result<Self> {
+        let content = fs::read_to_string(path)?;
+        let config = toml::from_str(&content)?;
+        Ok(config)
     }
 
-    fn save(&self, config_path: &PathBuf) -> Result<()> {
-        if let Some(parent) = config_path.parent() {
+    fn save(&self, path: &Path) -> Result<()> {
+        if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
 
-        let toml = toml::to_string(self)?;
-        fs::write(config_path, toml)?;
+        let content = toml::to_string(self)?;
+        fs::write(path, content)?;
         Ok(())
     }
 }
@@ -112,46 +108,43 @@ impl Config {
 pub struct ConfigManager {
     config_path: PathBuf,
     config: Config,
-    needs_reload: Arc<AtomicBool>,
+    ignore_next_change: Arc<AtomicBool>,
     _watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
 }
 
 impl ConfigManager {
-    pub fn new(config_path: PathBuf) -> Result<Self> {
-        let config = Config::load(&config_path);
+    pub fn new<F>(config_path: PathBuf, on_change: F) -> Result<Self>
+    where
+        F: Fn() + Send + 'static,
+    {
+        let config = Config::load(&config_path).unwrap_or_default();
 
-        let needs_reload = Arc::new(AtomicBool::new(false));
-        let needs_reload_clone = needs_reload.clone();
-
-        let current_dir = config_path.parent().unwrap().to_path_buf();
+        let ignore_next_change = Arc::new(AtomicBool::new(false));
+        let ignore_clone = ignore_next_change.clone();
 
         let watch_path = config_path.clone();
         let mut watcher = new_debouncer(
             Duration::from_millis(500),
             None,
             move |result: DebounceEventResult| {
-                if let Ok(events) = result {
-                    for event in events {
-                        for path in &event.paths {
-                            if path == &watch_path {
-                                needs_reload_clone.store(true, Ordering::Relaxed);
-                                break;
-                            }
-                        }
-                    }
+                if let Ok(events) = result
+                    && events.iter().any(|e| e.paths.contains(&watch_path))
+                    && !ignore_clone.swap(false, Ordering::SeqCst)
+                {
+                    on_change();
                 }
             },
         )?;
 
-        watcher.watch(&current_dir, RecursiveMode::NonRecursive)?;
+        watcher.watch(config_path.parent().unwrap(), RecursiveMode::NonRecursive)?;
 
         let manager = Self {
             config_path,
             config,
-            needs_reload,
+            ignore_next_change,
             _watcher: watcher,
         };
-        manager.config.save(&manager.config_path).ok();
+        manager.save_config().ok();
         Ok(manager)
     }
 
@@ -159,33 +152,44 @@ impl ConfigManager {
         &self.config
     }
 
-    pub fn try_reload(&mut self) -> bool {
-        if self.needs_reload.swap(false, Ordering::Relaxed) {
-            self.config = Config::load(&self.config_path);
-            self.config.save(&self.config_path).ok();
-            true
-        } else {
-            false
+    fn save_config(&self) -> Result<()> {
+        self.ignore_next_change.store(true, Ordering::SeqCst);
+        if let Err(e) = self.config.save(&self.config_path) {
+            self.ignore_next_change.store(false, Ordering::SeqCst);
+            return Err(e);
         }
+        Ok(())
+    }
+
+    pub fn try_reload(&mut self) -> Option<Config> {
+        let mut old_config = None;
+        if let Ok(new_config) = Config::load(&self.config_path)
+            && new_config != self.config
+        {
+            old_config = Some(mem::replace(&mut self.config, new_config));
+        }
+        self.save_config().ok();
+
+        old_config
     }
 
     pub fn set_current_character(&mut self, character: String) -> Result<()> {
         self.config.current_character = character;
-        self.config.save(&self.config_path)
+        self.save_config()
     }
 
     pub fn set_process_mode(&mut self, mode: ProcessMode) -> Result<()> {
         self.config.process_mode = mode;
-        self.config.save(&self.config_path)
+        self.save_config()
     }
 
     pub fn set_intercept_enter(&mut self, enabled: bool) -> Result<()> {
         self.config.intercept_enter = enabled;
-        self.config.save(&self.config_path)
+        self.save_config()
     }
 
     pub fn set_enable_whitelist(&mut self, enabled: bool) -> Result<()> {
         self.config.enable_whitelist = enabled;
-        self.config.save(&self.config_path)
+        self.save_config()
     }
 }
