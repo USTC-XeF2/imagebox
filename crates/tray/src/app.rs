@@ -52,7 +52,7 @@ impl App {
             .map(|c| (c.id.clone(), c.name.clone()))
             .collect::<HashMap<_, _>>();
 
-        let config_path = work_dir.join("config.yaml");
+        let config_path = work_dir.join("config.toml");
         let is_first_launch = !config_path.exists();
 
         let mut config_manager = ConfigManager::new(config_path)?;
