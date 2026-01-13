@@ -90,7 +90,7 @@ impl Config {
     fn load(config_path: &PathBuf) -> Self {
         if config_path.exists()
             && let Ok(content) = fs::read_to_string(config_path)
-            && let Ok(config) = serde_yaml::from_str(&content)
+            && let Ok(config) = serde_yaml_ng::from_str(&content)
         {
             config
         } else {
@@ -103,7 +103,7 @@ impl Config {
             fs::create_dir_all(parent)?;
         }
 
-        let yaml = serde_yaml::to_string(self)?;
+        let yaml = serde_yaml_ng::to_string(self)?;
         fs::write(config_path, yaml)?;
         Ok(())
     }

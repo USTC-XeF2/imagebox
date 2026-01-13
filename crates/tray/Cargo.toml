@@ -13,17 +13,16 @@ path = "src/main.rs"
 active-win-pos-rs = "0.9.1"
 anyhow = "1.0.100"
 arboard = "3.6.1"
-enigo = "0.6.1"
 global-hotkey = { version = "0.7.0", features = ["serde"] }
 imagebox-core = { path = "../core" }
 notify-debouncer-full = "0.6.0"
 open = "5.3.3"
 rdev = { version = "0.5.3", features = ["unstable_grab"] }
-rfd = "0.16.0"
+rfd = "0.17.2"
 serde = { version = "1.0.228", features = ["derive"] }
-serde_yaml = "0.9.34"
+serde_yaml_ng = "0.10.0"
 single-instance = "0.3.3"
-tray-icon = "0.21.2"
+tray-icon = "0.21.3"
 winit = "0.30.12"
 
 [build-dependencies]
